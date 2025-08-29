@@ -1,4 +1,6 @@
+
 export interface Table {
+  _id?: string;
   id: string;
   name: string;
   rate: number; // per hour
@@ -21,7 +23,7 @@ export interface ActiveSession {
 }
 
 export interface Admin {
-  id: string;
+  id:string;
   username: string;
   password?: string; // Should not be sent to client
 }
