@@ -56,26 +56,27 @@ export default function AdminLayout({
           <SidebarMenu>
             {navItems.map((item) => (
               <SidebarMenuItem key={item.href}>
-                <Link href={item.href} legacyBehavior passHref>
-                  <SidebarMenuButton
-                    isActive={pathname === item.href}
-                    tooltip={item.label}
-                  >
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname === item.href}
+                  tooltip={item.label}
+                >
+                  <Link href={item.href}>
                     <item.icon />
                     <span>{item.label}</span>
-                  </SidebarMenuButton>
-                </Link>
+                  </Link>
+                </SidebarMenuButton>
               </SidebarMenuItem>
             ))}
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter>
-          <Link href="/" legacyBehavior passHref>
-             <Button variant="ghost" className="justify-start gap-2 w-full">
-               <LogOut />
-               <span>Logout</span>
-             </Button>
-          </Link>
+          <Button asChild variant="ghost" className="justify-start gap-2 w-full">
+            <Link href="/">
+              <LogOut />
+              <span>Logout</span>
+            </Link>
+          </Button>
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>

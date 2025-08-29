@@ -27,12 +27,12 @@ export default function StaffLayout({
             <AvatarImage src="https://picsum.photos/100/100" data-ai-hint="male avatar" />
             <AvatarFallback>S</AvatarFallback>
           </Avatar>
-          <Link href="/" legacyBehavior passHref>
-            <Button variant="outline" size="icon">
+          <Button asChild variant="outline" size="icon">
+            <Link href="/">
               <LogOut className="h-5 w-5" />
               <span className="sr-only">Logout</span>
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
       </header>
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
