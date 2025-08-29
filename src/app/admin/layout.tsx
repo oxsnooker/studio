@@ -21,6 +21,7 @@ import {
   Award,
   Users,
   LogOut,
+  Database,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/logo";
@@ -32,6 +33,7 @@ const navItems = [
   { href: "/admin/menu", label: "Menu Items", icon: CupSoda },
   { href: "/admin/memberships", label: "Memberships", icon: Award },
   { href: "/admin/staff", label: "Staff", icon: Users },
+  { href: "/admin/db-test", label: "Database Test", icon: Database },
 ];
 
 export default function AdminLayout({
