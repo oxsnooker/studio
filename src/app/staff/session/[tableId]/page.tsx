@@ -230,20 +230,29 @@ export default function SessionPage() {
     };
     
     const handleRemoveItem = (itemIdToRemove: string) => {
-      setSession(prevSession => {
-        if (!prevSession) return null;
-    
-        const newItems = prevSession.items.map(item => {
-          if (item.id === itemIdToRemove) {
-            return { ...item, quantity: item.quantity - 1 };
-          }
-          return item;
-        }).filter(item => item.quantity > 0);
-    
-        const newSession = { ...prevSession, items: newItems };
-        updateSessionInStorage(newSession);
-        return newSession;
-      });
+        setSession(prevSession => {
+            if (!prevSession) return null;
+
+            const existingItem = prevSession.items.find(i => i.id === itemIdToRemove);
+            if (!existingItem) return prevSession;
+
+            let newItems;
+            if (existingItem.quantity > 1) {
+                // Decrement quantity
+                newItems = prevSession.items.map(item =>
+                    item.id === itemIdToRemove
+                        ? { ...item, quantity: item.quantity - 1 }
+                        : item
+                );
+            } else {
+                // Remove item if quantity is 1
+                newItems = prevSession.items.filter(item => item.id !== itemIdToRemove);
+            }
+
+            const newSession = { ...prevSession, items: newItems };
+            updateSessionInStorage(newSession);
+            return newSession;
+        });
     };
     
     const isSplitPayMismatch = useMemo(() => {
@@ -509,5 +518,3 @@ export default function SessionPage() {
         </div>
     );
 }
-
-    
