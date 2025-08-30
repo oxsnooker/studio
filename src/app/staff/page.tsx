@@ -301,7 +301,7 @@ export default function StaffDashboard() {
         </TabsList>
       </Tabs>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mt-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-4 mt-4">
         {filteredTables.map(renderTableCard)}
       </div>
 
@@ -425,5 +425,3 @@ export default function StaffDashboard() {
     </>
   );
 }
-
-    
