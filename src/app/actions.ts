@@ -34,17 +34,19 @@ export async function login(
         return { success: false, message: "Username and password are required for staff login." };
       }
       const q = query(collection(db, "staff"), where("username", "==", username));
-       const querySnapshot = await getDocs(q);
-       if (querySnapshot.empty) {
+      const querySnapshot = await getDocs(q);
+      
+      if (querySnapshot.empty) {
         return { success: false, message: "Invalid username or password" };
       }
+      
       const staffDoc = querySnapshot.docs[0];
       const staff = staffDoc.data() as Staff;
       
       // In a real app, passwords should be hashed.
-       if (staff.password === password) {
+      if (staff.password === password) {
          return { success: true, message: "Staff login successful.", role: "staff" };
-       }
+      }
     }
 
     return { success: false, message: "Invalid username or password" };

@@ -433,7 +433,7 @@ export default function SessionPage() {
             updateSessionInStorage(newSession);
             return newSession;
         });
-    }, [tableId]); // Dependency array should be stable
+    }, []);
     
     const isSplitPayMismatch = useMemo(() => {
         if (selectedPaymentMethod !== 'Split Pay') return false;
