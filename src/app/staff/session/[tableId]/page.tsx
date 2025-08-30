@@ -293,8 +293,7 @@ export default function SessionPage() {
                                  </div>
                             </div>
                         </CardContent>
-                        <CardFooter className="grid grid-cols-3 gap-2">
-                           <Button onClick={handleStart} disabled={session.status === 'running' || session.status === 'paused'} className="bg-green-600 hover:bg-green-700">Start</Button>
+                        <CardFooter className="grid grid-cols-2 gap-2">
                            <Button onClick={handleResume} disabled={session.status !== 'paused'} variant="outline">Resume</Button>
                            <Button onClick={session.status === 'running' ? handlePause : handleStop} disabled={session.status === 'stopped'} variant="destructive">{session.status === 'running' ? 'Pause' : 'Stop'}</Button>
                         </CardFooter>
@@ -438,3 +437,4 @@ export default function SessionPage() {
         </div>
     );
 }
+
