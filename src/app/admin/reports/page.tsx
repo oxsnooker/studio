@@ -237,7 +237,7 @@ export default function ReportsPage() {
         </Alert>
       ) : (
         <>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">
@@ -265,19 +265,6 @@ export default function ReportsPage() {
                 <CardContent>
                     <div className="text-2xl font-bold">
                     ₹{reportData.totalUpi.toFixed(2)}
-                    </div>
-                </CardContent>
-                </Card>
-                 <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total Split Pay</CardTitle>
-                    <div className="p-2 bg-yellow-100 rounded-full">
-                    <Split className="h-4 w-4 text-yellow-600" />
-                    </div>
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">
-                    ₹{reportData.totalSplit.toFixed(2)}
                     </div>
                 </CardContent>
                 </Card>
@@ -384,3 +371,4 @@ export default function ReportsPage() {
 }
 
     
+
