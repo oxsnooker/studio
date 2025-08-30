@@ -239,24 +239,19 @@ export default function SessionPage() {
 
     const handleAddItem = useCallback((itemToAdd: MenuItem) => {
         setSession(currentSession => {
-          if (!currentSession) return null;
-          
-          let newItems: OrderItem[];
-          const existingItemIndex = currentSession.items.findIndex(item => item.id === itemToAdd.id);
-
-          if (existingItemIndex > -1) {
-            newItems = currentSession.items.map((item, index) => 
-                index === existingItemIndex 
-                ? { ...item, quantity: item.quantity + 1 }
-                : item
-            );
-          } else {
-            newItems = [...currentSession.items, { ...itemToAdd, quantity: 1 }];
-          }
-
-          const newSession = { ...currentSession, items: newItems };
-          updateSessionInStorage(newSession);
-          return newSession;
+            if (!currentSession) return null;
+    
+            const newSession = { ...currentSession };
+            const existingItem = newSession.items.find(item => item.id === itemToAdd.id);
+    
+            if (existingItem) {
+                existingItem.quantity += 1;
+            } else {
+                newSession.items.push({ ...itemToAdd, quantity: 1 });
+            }
+    
+            updateSessionInStorage(newSession);
+            return newSession;
         });
     }, [tableId]);
     
@@ -264,20 +259,17 @@ export default function SessionPage() {
         setSession(currentSession => {
             if (!currentSession) return null;
     
-            let newItems;
-            const itemToUpdate = currentSession.items.find(item => item.id === itemIdToRemove);
-
-            if (itemToUpdate && itemToUpdate.quantity > 1) {
-                newItems = currentSession.items.map(item =>
-                    item.id === itemIdToRemove
-                        ? { ...item, quantity: item.quantity - 1 }
-                        : item
-                );
-            } else {
-                newItems = currentSession.items.filter(item => item.id !== itemIdToRemove);
+            const newSession = { ...currentSession };
+            const itemIndex = newSession.items.findIndex(item => item.id === itemIdToRemove);
+    
+            if (itemIndex > -1) {
+                if (newSession.items[itemIndex].quantity > 1) {
+                    newSession.items[itemIndex].quantity -= 1;
+                } else {
+                    newSession.items.splice(itemIndex, 1);
+                }
             }
     
-            const newSession = { ...currentSession, items: newItems };
             updateSessionInStorage(newSession);
             return newSession;
         });
@@ -559,3 +551,5 @@ export default function SessionPage() {
         </div>
     );
 }
+
+    
