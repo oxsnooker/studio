@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -7,46 +8,39 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from "recharts";
-import { DollarSign, Clock, Utensils, GlassWater } from "lucide-react";
-import { dailyRevenue, itemWiseSales } from "@/lib/data";
+import { Button } from "@/components/ui/button";
+import { DollarSign, Clock, Utensils, AppWindow, Calendar as CalendarIcon } from "lucide-react";
+import { dailyRevenue } from "@/lib/data";
 
 export default function DashboardPage() {
-  const chartData = itemWiseSales.map((item) => ({
-    name: item.name,
-    Sales: item.quantity,
-  }));
-
-  const formatYAxis = (tickItem: number) => {
-    return `₹${tickItem}`;
-  };
+  // Mock data - replace with real data fetching
+  const activeTables = 0;
+  const totalTables = 8;
 
   return (
     <div className="space-y-6">
+       <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold tracking-tight">Today's Overview</h2>
+        <Button variant="outline">
+          <CalendarIcon className="mr-2 h-4 w-4" />
+          <span>30/08/2025</span>
+        </Button>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Total Revenue Today
+              Total Revenue
             </CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <div className="p-2 bg-green-100 rounded-full">
+              <DollarSign className="h-4 w-4 text-green-600" />
+            </div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ₹{dailyRevenue.total.toLocaleString()}
+              ₹{dailyRevenue.total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Across all sales
-            </p>
           </CardContent>
         </Card>
         <Card>
@@ -54,68 +48,65 @@ export default function DashboardPage() {
             <CardTitle className="text-sm font-medium">
               Table Time Revenue
             </CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+             <div className="p-2 bg-blue-100 rounded-full">
+                <Clock className="h-4 w-4 text-blue-600" />
+             </div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ₹{dailyRevenue.tableTime.toLocaleString()}
+               ₹{dailyRevenue.tableTime.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
             </div>
-            <p className="text-xs text-muted-foreground">From table usage</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Chips Revenue</CardTitle>
-            <Utensils className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Items Revenue</CardTitle>
+            <div className="p-2 bg-orange-100 rounded-full">
+                <Utensils className="h-4 w-4 text-orange-600" />
+            </div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ₹{dailyRevenue.chips.toLocaleString()}
+                ₹{(dailyRevenue.chips + dailyRevenue.drinks).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
             </div>
-            <p className="text-xs text-muted-foreground">From snack sales</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Drinks Revenue
+              Active Tables
             </CardTitle>
-            <GlassWater className="h-4 w-4 text-muted-foreground" />
+            <div className="p-2 bg-purple-100 rounded-full">
+                <AppWindow className="h-4 w-4 text-purple-600" />
+            </div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ₹{dailyRevenue.drinks.toLocaleString()}
+              {activeTables}/{totalTables}
             </div>
-            <p className="text-xs text-muted-foreground">From beverage sales</p>
+            <p className="text-xs text-muted-foreground">Live</p>
           </CardContent>
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Item-wise Sales Report</CardTitle>
-          <CardDescription>
-            Number of units sold for each item today.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={350}>
-            <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "hsl(var(--background))",
-                  borderColor: "hsl(var(--border))",
-                }}
-              />
-              <Legend />
-              <Bar dataKey="Sales" fill="hsl(var(--primary))" name="Units Sold" />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
+       <div className="grid gap-4 md:grid-cols-2">
+          <Card>
+              <CardHeader>
+                  <CardTitle>Recent Activity</CardTitle>
+              </CardHeader>
+              <CardContent>
+                  <p className="text-sm text-muted-foreground">No transactions yet today.</p>
+              </CardContent>
+          </Card>
+          <Card>
+              <CardHeader>
+                  <CardTitle>Top Selling Items</CardTitle>
+              </CardHeader>
+              <CardContent>
+                  <p className="text-sm text-muted-foreground">No items sold yet.</p>
+              </CardContent>
+          </Card>
+       </div>
     </div>
   );
 }

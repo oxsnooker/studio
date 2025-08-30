@@ -24,13 +24,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { login } from "@/app/actions";
 import { Logo } from "@/components/logo";
@@ -81,10 +74,6 @@ export default function LoginPage() {
     startTransition(async () => {
         const result = await login({ role: "admin" });
         if (result.success) {
-            toast({
-                title: "Login Successful",
-                description: `Welcome, Admin!`,
-            });
             router.push(result.redirect);
         } else {
             toast({
@@ -97,15 +86,15 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-4">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-muted/40 p-4">
       <div className="flex flex-col items-center justify-center space-y-4 mb-8">
-        <Logo className="w-24 h-24" />
-        <h1 className="text-4xl font-headline font-bold">CueBook</h1>
-        <p className="text-muted-foreground">Welcome to The Ox Snooker</p>
+        <Logo className="w-16 h-16" />
+        <h1 className="text-3xl font-headline font-bold">CueBook</h1>
+        <p className="text-muted-foreground">Club Management System</p>
       </div>
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="text-2xl">Staff Login</CardTitle>
+          <CardTitle className="text-xl">Staff Login</CardTitle>
           <CardDescription>
             Enter your credentials to access the staff dashboard.
           </CardDescription>
@@ -157,9 +146,6 @@ export default function LoginPage() {
           </Button>
         </CardContent>
       </Card>
-      <footer className="mt-8 text-sm text-muted-foreground">
-        © {new Date().getFullYear()} CueBook. All rights reserved.
-      </footer>
     </main>
   );
 }
