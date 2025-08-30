@@ -37,6 +37,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { getStaff } from "../staff/actions";
+import { clearTodaysTransactions } from "./actions";
 import type { Staff, Transaction } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { db } from '@/lib/firebase';
@@ -85,11 +86,105 @@ export default function ReportsPage() {
 
   const [reportData, setReportData] = useState<ReportData>(initialReportData);
 
+  const fetchTransactions = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+        // Default to today's data
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const startOfToday = Timestamp.fromDate(today);
+
+        const q = query(
+          collection(db, "transactions"),
+          where("createdAt", ">=", startOfToday.toMillis()),
+          orderBy("createdAt", "desc")
+        );
+
+        const querySnapshot = await getDocs(q);
+        const transactions = querySnapshot.docs.map(doc => doc.data() as Transaction);
+
+        // Compute aggregations
+        let totalCash = 0;
+        let totalUpi = 0;
+        let totalMembership = 0;
+        let grandTotal = 0;
+        const tablePerf: Record<string, { sessions: number, hours: number, revenue: number }> = {};
+        const itemSales: Record<string, { quantity: number, revenue: number }> = {};
+
+        transactions.forEach(tx => {
+            grandTotal += tx.totalAmount;
+             if (tx.paymentMethod === 'Cash') {
+              totalCash += tx.totalAmount;
+            } else if (tx.paymentMethod === 'UPI') {
+              totalUpi += tx.totalAmount;
+            } else if (tx.paymentMethod === 'Split Pay') {
+                totalCash += tx.cashAmount || 0;
+                totalUpi += tx.upiAmount || 0;
+            } else if (tx.paymentMethod === 'Membership') {
+              totalMembership += tx.totalAmount;
+            }
+
+            // Table performance
+            if (!tablePerf[tx.tableName]) {
+                tablePerf[tx.tableName] = { sessions: 0, hours: 0, revenue: 0 };
+            }
+            tablePerf[tx.tableName].sessions += 1;
+            tablePerf[tx.tableName].hours += tx.durationSeconds / 3600;
+            tablePerf[tx.tableName].revenue += tx.tableCost;
+
+            // Item sales
+            tx.items.forEach(item => {
+                if (!itemSales[item.name]) {
+                    itemSales[item.name] = { quantity: 0, revenue: 0 };
+                }
+                itemSales[item.name].quantity += item.quantity;
+                itemSales[item.name].revenue += item.quantity * item.price;
+            });
+        });
+
+        setReportData({
+            totalCash,
+            totalUpi,
+            totalMembership,
+            grandTotal,
+            tablePerformance: Object.entries(tablePerf).map(([name, data]) => ({ name, ...data })).sort((a,b) => b.revenue - a.revenue),
+            itemSales: Object.entries(itemSales).map(([name, data]) => ({ name, ...data })).sort((a,b) => b.quantity - a.quantity),
+        });
+
+    } catch (e: any) {
+        setError("Failed to fetch reports data. Please check Firestore connection.");
+        console.error(e);
+    } finally {
+        setIsLoading(false);
+    }
+  };
+  
   const handleClearReports = () => {
-    setReportData(initialReportData);
-    toast({
-        title: "Reports Cleared",
-        description: "All report data has been cleared from the view.",
+    startTransition(async () => {
+        try {
+            const result = await clearTodaysTransactions();
+             if (result.success) {
+                toast({
+                    title: "Reports Cleared",
+                    description: result.message,
+                });
+                // Re-fetch data to show the cleared state
+                await fetchTransactions();
+            } else {
+                 toast({
+                    variant: "destructive",
+                    title: "Error",
+                    description: result.message,
+                });
+            }
+        } catch (e) {
+             toast({
+                variant: "destructive",
+                title: "Error",
+                description: "An unexpected error occurred while clearing reports.",
+            });
+        }
     });
   }
 
@@ -113,80 +208,6 @@ export default function ReportsPage() {
 
   // Fetch and compute report data
   useEffect(() => {
-      const fetchTransactions = async () => {
-        setIsLoading(true);
-        setError(null);
-        try {
-            // Default to today's data
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const startOfToday = Timestamp.fromDate(today);
-
-            const q = query(
-              collection(db, "transactions"),
-              where("createdAt", ">=", startOfToday.toMillis()),
-              orderBy("createdAt", "desc")
-            );
-
-            const querySnapshot = await getDocs(q);
-            const transactions = querySnapshot.docs.map(doc => doc.data() as Transaction);
-
-            // Compute aggregations
-            let totalCash = 0;
-            let totalUpi = 0;
-            let totalMembership = 0;
-            let grandTotal = 0;
-            const tablePerf: Record<string, { sessions: number, hours: number, revenue: number }> = {};
-            const itemSales: Record<string, { quantity: number, revenue: number }> = {};
-
-            transactions.forEach(tx => {
-                grandTotal += tx.totalAmount;
-                 if (tx.paymentMethod === 'Cash') {
-                  totalCash += tx.totalAmount;
-                } else if (tx.paymentMethod === 'UPI') {
-                  totalUpi += tx.totalAmount;
-                } else if (tx.paymentMethod === 'Split Pay') {
-                    totalCash += tx.cashAmount || 0;
-                    totalUpi += tx.upiAmount || 0;
-                } else if (tx.paymentMethod === 'Membership') {
-                  totalMembership += tx.totalAmount;
-                }
-
-                // Table performance
-                if (!tablePerf[tx.tableName]) {
-                    tablePerf[tx.tableName] = { sessions: 0, hours: 0, revenue: 0 };
-                }
-                tablePerf[tx.tableName].sessions += 1;
-                tablePerf[tx.tableName].hours += tx.durationSeconds / 3600;
-                tablePerf[tx.tableName].revenue += tx.tableCost;
-
-                // Item sales
-                tx.items.forEach(item => {
-                    if (!itemSales[item.name]) {
-                        itemSales[item.name] = { quantity: 0, revenue: 0 };
-                    }
-                    itemSales[item.name].quantity += item.quantity;
-                    itemSales[item.name].revenue += item.quantity * item.price;
-                });
-            });
-
-            setReportData({
-                totalCash,
-                totalUpi,
-                totalMembership,
-                grandTotal,
-                tablePerformance: Object.entries(tablePerf).map(([name, data]) => ({ name, ...data })).sort((a,b) => b.revenue - a.revenue),
-                itemSales: Object.entries(itemSales).map(([name, data]) => ({ name, ...data })).sort((a,b) => b.quantity - a.quantity),
-            });
-
-        } catch (e: any) {
-            setError("Failed to fetch reports data. Please check Firestore connection.");
-            console.error(e);
-        } finally {
-            setIsLoading(false);
-        }
-      };
-
       fetchTransactions();
   }, []);
 
@@ -289,8 +310,8 @@ export default function ReportsPage() {
         <div className="flex items-center gap-2">
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="outline">
-                    <RefreshCw className="mr-2 h-4 w-4" />
+                <Button variant="outline" disabled={isPending}>
+                    {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
                     Clear
                 </Button>
               </AlertDialogTrigger>
@@ -298,7 +319,7 @@ export default function ReportsPage() {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This will clear all the currently displayed report data. This action cannot be undone.
+                    This will permanently delete all of today's transaction records from the database. This action cannot be undone.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
