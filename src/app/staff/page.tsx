@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
-import type { MenuItem, ActiveSession } from "@/lib/data";
+import type { MenuItem } from "@/lib/data";
 import type { Table as TableType } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -52,6 +52,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import Image from "next/image";
 import { getTables } from "@/app/admin/tables/actions";
 import { getMenuItems } from "@/app/admin/menu/actions";
+import { ActiveSession } from "@/lib/types";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 
 const formatDuration = (seconds: number) => {
   const h = Math.floor(seconds / 3600);
@@ -59,6 +62,20 @@ const formatDuration = (seconds: number) => {
   const s = Math.floor(seconds % 60);
   return [h, m, s].map((v) => v.toString().padStart(2, "0")).join(":");
 };
+
+const getTableImage = (category: string) => {
+    switch (category) {
+        case "American Pool":
+            return { src: "https://picsum.photos/seed/pool/600/400", hint: "pool table" };
+        case "Mini Snooker":
+            return { src: "https://picsum.photos/seed/snooker/600/400", hint: "snooker table" };
+        case "Standard":
+             return { src: "https://picsum.photos/seed/billiards/600/400", hint: "billiards table" };
+        default:
+            return { src: "https://picsum.photos/seed/default/600/400", hint: "game table" };
+    }
+}
+
 
 export default function StaffDashboard() {
   const [tables, setTables] = useState<TableType[]>([]);
@@ -72,6 +89,7 @@ export default function StaffDashboard() {
   const [isBillLoading, startBillGeneration] = useTransition();
   const [generatedBill, setGeneratedBill] = useState<string | null>(null);
   const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState("All Tables");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -222,42 +240,37 @@ export default function StaffDashboard() {
     });
   };
 
+  const filteredTables = tables.filter(table => activeTab === 'All Tables' || table.category === activeTab);
+
   const renderTableCard = (table: TableType) => {
     if (!table.id) return null;
     const session = sessions[table.id];
     const isActive = !!session;
+    const imageData = getTableImage(table.category);
+
+    const handleCardClick = () => {
+        if (isActive) {
+            setActiveModalTable(table);
+        } else {
+            handleStartSession(table);
+        }
+    }
 
     return (
-      <Card key={table.id}>
-        <CardHeader>
-          <CardTitle className="flex justify-between items-center">
-            {table.name}
-            <Badge variant={isActive ? "destructive" : "secondary"}>
-              {isActive ? "In Use" : "Available"}
+      <Card key={table.id} onClick={handleCardClick} className="overflow-hidden cursor-pointer flex flex-col group">
+        <div className="relative">
+             <Image src={imageData.src} alt={table.name} width={600} height={400} className="object-cover aspect-[3/2] w-full group-hover:scale-105 transition-transform duration-300" data-ai-hint={imageData.hint}/>
+             <Badge className={cn("absolute top-2 right-2", isActive ? "bg-red-500" : "bg-green-500")}>
+              {isActive ? `In Use: ${formatDuration(session.elapsedSeconds)}` : "Available"}
             </Badge>
-          </CardTitle>
-          <CardDescription>Rate: ₹{table.rate}/hr</CardDescription>
+        </div>
+        <CardHeader className="p-4">
+            <CardTitle>{table.name}</CardTitle>
+            <CardDescription>{table.category}</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="text-4xl font-mono font-bold">
-            {isActive ? formatDuration(session.elapsedSeconds) : "00:00:00"}
-          </div>
+        <CardContent className="p-4 pt-0 flex-grow">
+             <p className="text-sm text-muted-foreground">{isActive ? 'Click to manage session.' : 'Click to start session.'}</p>
         </CardContent>
-        <CardFooter>
-          {isActive ? (
-            <Button
-              className="w-full"
-              variant="outline"
-              onClick={() => setActiveModalTable(table)}
-            >
-              Manage Session
-            </Button>
-          ) : (
-            <Button className="w-full" onClick={() => handleStartSession(table)}>
-              <PlayCircle className="mr-2 h-4 w-4" /> Start Session
-            </Button>
-          )}
-        </CardFooter>
       </Card>
     );
   };
@@ -279,8 +292,17 @@ export default function StaffDashboard() {
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {tables.map(renderTableCard)}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+            <TabsTrigger value="All Tables">All Tables</TabsTrigger>
+            <TabsTrigger value="American Pool">American Pool</TabsTrigger>
+            <TabsTrigger value="Mini Snooker">Mini Snooker</TabsTrigger>
+            <TabsTrigger value="Standard">Standard</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mt-4">
+        {filteredTables.map(renderTableCard)}
       </div>
 
       {/* Session Management Modal */}
