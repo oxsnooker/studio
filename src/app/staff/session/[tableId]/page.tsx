@@ -182,7 +182,10 @@ export default function SessionPage() {
         return session.items.reduce((acc, item) => acc + item.price * item.quantity, 0);
     }, [session]);
 
-    const totalPayable = tableCost + itemsCost;
+    const totalPayable = useMemo(() => {
+        return Math.floor(tableCost + itemsCost);
+    }, [tableCost, itemsCost]);
+
 
     const handleCompletePayment = () => {
         if (!selectedPaymentMethod) {
@@ -193,8 +196,8 @@ export default function SessionPage() {
         if (selectedPaymentMethod === 'Split Pay') {
             const parsedCash = parseFloat(cashAmount) || 0;
             const parsedUpi = parseFloat(upiAmount) || 0;
-            if ((parsedCash + parsedUpi).toFixed(2) !== totalPayable.toFixed(2)) {
-                toast({ variant: "destructive", title: "Error", description: `Split payment amounts (₹${(parsedCash + parsedUpi).toFixed(2)}) must add up to the total payable (₹${totalPayable.toFixed(2)}).` });
+            if (Math.floor(parsedCash + parsedUpi) !== totalPayable) {
+                toast({ variant: "destructive", title: "Error", description: `Split payment amounts (₹${(parsedCash + parsedUpi).toFixed(2)}) must add up to the total payable (₹${totalPayable}).` });
                 return;
             }
         }
@@ -395,7 +398,7 @@ export default function SessionPage() {
                         <CardFooter className="flex-col items-stretch space-y-2">
                             <div className="bg-green-50 text-green-800 p-4 rounded-lg flex justify-between items-center">
                                 <span className="text-lg font-bold">Total Payable:</span>
-                                <span className="text-2xl font-bold">₹{totalPayable.toFixed(2)}</span>
+                                <span className="text-2xl font-bold">₹{totalPayable}</span>
                             </div>
                             <Button size="lg" onClick={handleSettleBill} disabled={sessionStatus !== 'stopped'}>
                                 <Receipt className="mr-2 h-5 w-5" /> Settle Bill
@@ -422,7 +425,7 @@ export default function SessionPage() {
                                 <div className="flex justify-between"><span className="text-muted-foreground">Time Cost:</span><span>₹{tableCost.toFixed(2)}</span></div>
                                 <div className="flex justify-between"><span className="text-muted-foreground">Items Cost:</span><span>₹{itemsCost.toFixed(2)}</span></div>
                                 <Separator className="my-2"/>
-                                <div className="flex justify-between font-bold text-lg"><span>Total Amount:</span><span>₹{totalPayable.toFixed(2)}</span></div>
+                                <div className="flex justify-between font-bold text-lg"><span>Total Amount:</span><span>₹{totalPayable}</span></div>
                             </div>
                         </div>
                         <div>
