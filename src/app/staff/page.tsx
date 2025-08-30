@@ -1,9 +1,8 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useTransition } from "react";
 import { useRouter } from 'next/navigation';
-import type { MenuItem } from "@/lib/data";
 import type { Table as TableType } from "@/lib/types";
 import {
   Card,
@@ -16,7 +15,6 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getTables } from "@/app/admin/tables/actions";
-import { getMenuItems } from "@/app/admin/menu/actions";
 import { ActiveSession } from "@/lib/types";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
@@ -34,9 +32,9 @@ const getTableImage = (category: string) => {
         case "American Pool":
             return { src: "https://images.unsplash.com/photo-1666193183128-6ec58995f672?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHw4JTIwYmFsbCUyMHBvb2x8ZW58MHx8fHwxNzU2NTQ4NjM5fDA&ixlib=rb-4.1.0&q=80&w=1080", hint: "pool table" };
         case "Mini Snooker":
-            return { src: "https://picsum.photos/seed/snooker/600/400", hint: "snooker table" };
+            return { src: "https://tse3.mm.bing.net/th/id/OIP.HuHTft4jryQ5Fy-fxXRQEQHaE7?pid=ImgDet&w=195&h=130&c=7&o=7&rm=3", hint: "snooker table" };
         case "Standard":
-             return { src: "https://picsum.photos/seed/billiards/600/400", hint: "billiards table" };
+             return { src: "https://tse3.mm.bing.net/th/id/OIP.HuHTft4jryQ5Fy-fxXRQEQHaE7?pid=ImgDet&w=195&h=130&c=7&o=7&rm=3", hint: "billiards table" };
         default:
             return { src: "https://picsum.photos/seed/default/600/400", hint: "game table" };
     }
@@ -50,6 +48,7 @@ export default function StaffDashboard() {
   const { toast } = useToast();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("All Tables");
+  const [isPending, startTransition] = useTransition();
 
   // Fetch initial data for tables and menu items
   useEffect(() => {
@@ -129,7 +128,7 @@ export default function StaffDashboard() {
     return (
       <Card key={table.id} onClick={() => handleCardClick(table)} className="overflow-hidden cursor-pointer flex flex-col group">
         <div className="relative">
-             <Image src={imageData.src} alt={table.name} width={600} height={400} className="object-cover aspect-[3/2] w-full group-hover:scale-105 transition-transform duration-300" data-ai-hint={imageData.hint}/>
+             <Image src={imageData.src} alt={table.name} width={195} height={130} className="object-cover aspect-[3/2] w-full group-hover:scale-105 transition-transform duration-300" data-ai-hint={imageData.hint}/>
              <Badge className={cn("absolute top-2 right-2", isActive ? "bg-red-500" : "bg-green-500")}>
               {isActive ? `In Use: ${formatDuration(session.elapsedSeconds)}` : "Available"}
             </Badge>
