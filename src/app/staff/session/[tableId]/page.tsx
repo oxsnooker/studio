@@ -392,25 +392,23 @@ export default function SessionPage() {
     };
 
     const handleAddItem = (itemToAdd: MenuItem) => {
-        setSession(currentSession => {
-            if (!currentSession) return null;
-    
-            const newItems = [...currentSession.items];
-            const existingItemIndex = newItems.findIndex(item => item.id === itemToAdd.id);
-    
-            if (existingItemIndex > -1) {
-                newItems[existingItemIndex] = {
-                    ...newItems[existingItemIndex],
-                    quantity: newItems[existingItemIndex].quantity + 1,
-                };
-            } else {
-                newItems.push({ ...itemToAdd, quantity: 1 });
-            }
-            
-            const newSession = { ...currentSession, items: newItems };
-            updateSessionInStorage(newSession);
-            return newSession;
-        });
+        if (!session) return;
+        
+        const currentSession = { ...session };
+        const newItems = [...currentSession.items];
+        const existingItemIndex = newItems.findIndex(item => item.id === itemToAdd.id);
+
+        if (existingItemIndex > -1) {
+            newItems[existingItemIndex] = {
+                ...newItems[existingItemIndex],
+                quantity: newItems[existingItemIndex].quantity + 1,
+            };
+        } else {
+            newItems.push({ ...itemToAdd, quantity: 1 });
+        }
+        
+        const newSession = { ...currentSession, items: newItems };
+        updateSessionInStorage(newSession);
     };
     
     const handleRemoveItem = useCallback((itemIdToRemove: string) => {
