@@ -1,6 +1,5 @@
 
 export interface Table {
-  _id?: string;
   id: string;
   name: string;
   rate: number; // per hour

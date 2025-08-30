@@ -33,14 +33,11 @@ import { getTables, addTable, updateTable, deleteTable } from "./actions";
 import { useToast } from "@/hooks/use-toast";
 import type { Table as TableType } from "@/lib/types";
 
-// Extend TableType to include the MongoDB _id
-type TableWithId = Table & { _id?: string };
-
 export default function TablesPage() {
-  const [tables, setTables] = useState<TableWithId[]>([]);
+  const [tables, setTables] = useState<TableType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingTable, setEditingTable] = useState<TableWithId | null>(null);
+  const [editingTable, setEditingTable] = useState<TableType | null>(null);
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
@@ -60,35 +57,43 @@ export default function TablesPage() {
     
     startTransition(async () => {
       const action = editingTable
-        ? updateTable.bind(null, editingTable?._id!)
+        ? updateTable.bind(null, editingTable?.id!)
         : addTable;
         
-      const result = await action(formData);
-      if (result.success) {
-        toast({ title: "Success", description: result.message });
-        const fetchedTables = await getTables();
-        setTables(fetchedTables);
-        closeDialog();
-      } else {
-        toast({ variant: "destructive", title: "Error", description: result.message });
+      try {
+        const result = await action(formData);
+        if (result.success) {
+          toast({ title: "Success", description: result.message });
+          const fetchedTables = await getTables();
+          setTables(fetchedTables);
+          closeDialog();
+        } else {
+          toast({ variant: "destructive", title: "Error", description: result.message });
+        }
+      } catch (error) {
+         toast({ variant: "destructive", title: "Error", description: "An unexpected error occurred." });
       }
     });
   };
 
   const handleDeleteTable = (id: string) => {
     startTransition(async () => {
-      const result = await deleteTable(id);
-      if (result.success) {
-        toast({ title: "Success", description: result.message });
-        const fetchedTables = await getTables();
-        setTables(fetchedTables);
-      } else {
-        toast({ variant: "destructive", title: "Error", description: result.message });
+      try {
+        const result = await deleteTable(id);
+        if (result.success) {
+          toast({ title: "Success", description: result.message });
+          const fetchedTables = await getTables();
+          setTables(fetchedTables);
+        } else {
+          toast({ variant: "destructive", title: "Error", description: result.message });
+        }
+      } catch (error) {
+        toast({ variant: "destructive", title: "Error", description: "An unexpected error occurred." });
       }
     });
   };
   
-  const openEditDialog = (table: TableWithId) => {
+  const openEditDialog = (table: TableType) => {
     setEditingTable(table);
     setIsDialogOpen(true);
   };
@@ -132,7 +137,7 @@ export default function TablesPage() {
             </TableHeader>
             <TableBody>
               {tables.map((table) => (
-                <TableRow key={table._id}>
+                <TableRow key={table.id}>
                   <TableCell className="font-medium">{table.name}</TableCell>
                   <TableCell>₹{table.rate.toFixed(2)}</TableCell>
                   <TableCell className="text-right">
@@ -143,7 +148,7 @@ export default function TablesPage() {
                       variant="ghost"
                       size="icon"
                       className="text-destructive hover:text-destructive"
-                      onClick={() => handleDeleteTable(table._id!)}
+                      onClick={() => handleDeleteTable(table.id!)}
                       disabled={isPending}
                     >
                       <Trash2 className="h-4 w-4" />

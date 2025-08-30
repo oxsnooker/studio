@@ -21,7 +21,6 @@ import {
   Award,
   Users,
   LogOut,
-  Database,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/logo";
@@ -33,7 +32,6 @@ const navItems = [
   { href: "/admin/menu", label: "Menu Items", icon: CupSoda },
   { href: "/admin/memberships", label: "Memberships", icon: Award },
   { href: "/admin/staff", label: "Staff", icon: Users },
-  { href: "/admin/db-test", label: "Database Test", icon: Database },
 ];
 
 export default function AdminLayout({
@@ -56,27 +54,27 @@ export default function AdminLayout({
           <SidebarMenu>
             {navItems.map((item) => (
               <SidebarMenuItem key={item.href}>
-                <SidebarMenuButton
-                  asChild
-                  isActive={pathname === item.href}
-                  tooltip={item.label}
-                >
-                  <Link href={item.href}>
+                <Link href={item.href} className="w-full">
+                  <SidebarMenuButton
+                    isActive={pathname === item.href}
+                    tooltip={item.label}
+                    className="w-full"
+                  >
                     <item.icon />
                     <span>{item.label}</span>
-                  </Link>
-                </SidebarMenuButton>
+                  </SidebarMenuButton>
+                </Link>
               </SidebarMenuItem>
             ))}
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter>
-          <Button asChild variant="ghost" className="justify-start gap-2 w-full">
-            <Link href="/">
-              <LogOut />
-              <span>Logout</span>
-            </Link>
-          </Button>
+           <Link href="/" className="w-full">
+            <Button variant="ghost" className="justify-start gap-2 w-full">
+                <LogOut />
+                <span>Logout</span>
+            </Button>
+          </Link>
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>

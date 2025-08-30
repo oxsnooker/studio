@@ -1,13 +1,7 @@
 import type { Table, MenuItem, Admin, Staff, MembershipPlan, Member } from './types';
 
-export const initialTables: Table[] = [
-  { id: 'table-1', name: 'Table 1', rate: 120 },
-  { id: 'table-2', name: 'Table 2', rate: 120 },
-  { id: 'table-3', name: 'Table 3', rate: 120 },
-  { id: 'table-4', name: 'Table 4', rate: 120 },
-  { id: 'vip-table-1', name: 'VIP Table', rate: 200 },
-  { id: 'snooker-table-1', name: 'Snooker Table', rate: 150 },
-];
+// This data is now fetched from Firestore, so this can be empty or used for seeding.
+export const initialTables: Table[] = [];
 
 export const initialMenuItems: MenuItem[] = [
   { id: 'item-1', name: 'Chips', price: 20 },

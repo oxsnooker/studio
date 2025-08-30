@@ -2,12 +2,11 @@
 
 import { useState, useEffect, useTransition } from "react";
 import {
-  initialTables,
   initialMenuItems,
-  type Table as TableType,
   type MenuItem,
   type ActiveSession,
 } from "@/lib/data";
+import type { Table as TableType } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -54,6 +53,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Image from "next/image";
+import { getTables } from "@/app/admin/tables/actions";
 
 const formatDuration = (seconds: number) => {
   const h = Math.floor(seconds / 3600);
@@ -63,6 +63,8 @@ const formatDuration = (seconds: number) => {
 };
 
 export default function StaffDashboard() {
+  const [tables, setTables] = useState<TableType[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [sessions, setSessions] = useState<Record<string, ActiveSession>>({});
   const [activeModalTable, setActiveModalTable] = useState<TableType | null>(
     null
@@ -71,6 +73,16 @@ export default function StaffDashboard() {
   const [isBillLoading, startBillGeneration] = useTransition();
   const [generatedBill, setGeneratedBill] = useState<string | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchTables = async () => {
+      setIsLoading(true);
+      const fetchedTables = await getTables();
+      setTables(fetchedTables);
+      setIsLoading(false);
+    };
+    fetchTables();
+  }, []);
 
   // Timer update effect
   useEffect(() => {
@@ -237,10 +249,18 @@ export default function StaffDashboard() {
   const itemsCost = session ? session.items.reduce((acc, item) => acc + item.price * item.quantity, 0) : 0;
   const totalCost = tableCost + itemsCost;
 
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-full">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {initialTables.map(renderTableCard)}
+        {tables.map(renderTableCard)}
       </div>
 
       {/* Session Management Modal */}
