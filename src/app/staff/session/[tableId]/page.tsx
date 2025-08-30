@@ -173,23 +173,30 @@ export default function SessionPage() {
     const handleResume = () => {
         if (!session || !['paused', 'stopped'].includes(session.status)) return;
     
+        let newSession: ActiveSession;
+    
         if (session.status === 'paused' && session.pauseTime) {
             const pauseDuration = Math.floor((new Date().getTime() - new Date(session.pauseTime).getTime()) / 1000);
-            const newSession = {
+            newSession = {
                 ...session,
                 status: 'running' as 'running',
                 totalPauseDuration: session.totalPauseDuration + pauseDuration,
                 pauseTime: undefined,
             };
-            updateSessionInStorage(newSession);
         } else if (session.status === 'stopped') {
-            // Simply set the status back to running without changing durations
-            const newSession = {
+            // Recalculate startTime to continue timer from where it was stopped
+            const newStartTime = new Date(new Date().getTime() - (session.elapsedSeconds * 1000) - (session.totalPauseDuration * 1000));
+            newSession = {
                 ...session,
+                startTime: newStartTime,
                 status: 'running' as 'running',
             };
-            updateSessionInStorage(newSession);
+        } else {
+            // Should not happen, but as a fallback
+            return;
         }
+        
+        updateSessionInStorage(newSession);
     };
 
     const handleSettleBill = () => {
@@ -388,15 +395,19 @@ export default function SessionPage() {
         setSession(currentSession => {
             if (!currentSession) return null;
     
-            const newSession = { ...currentSession };
-            const existingItem = newSession.items.find(item => item.id === itemToAdd.id);
+            const newItems = [...currentSession.items];
+            const existingItemIndex = newItems.findIndex(item => item.id === itemToAdd.id);
     
-            if (existingItem) {
-                existingItem.quantity += 1;
+            if (existingItemIndex > -1) {
+                newItems[existingItemIndex] = {
+                    ...newItems[existingItemIndex],
+                    quantity: newItems[existingItemIndex].quantity + 1,
+                };
             } else {
-                newSession.items.push({ ...itemToAdd, quantity: 1 });
+                newItems.push({ ...itemToAdd, quantity: 1 });
             }
             
+            const newSession = { ...currentSession, items: newItems };
             updateSessionInStorage(newSession);
             return newSession;
         });
@@ -542,11 +553,15 @@ export default function SessionPage() {
                         </CardContent>
                          {session ? (
                              <CardFooter className="grid grid-cols-3 gap-2 no-print">
-                               <Button onClick={sessionStatus === 'running' ? handlePause : handleResume} disabled={sessionStatus === 'idle'} variant="outline">
-                                    {sessionStatus === 'running' ? <Pause className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
-                                    {sessionStatus === 'running' ? 'Pause' : 'Resume'}
+                               <Button onClick={sessionStatus === 'running' ? handlePause : handleResume} disabled={sessionStatus === 'idle' || sessionStatus === 'stopped'} variant="outline">
+                                    <Pause className="mr-2 h-4 w-4" />
+                                    Pause
                                </Button>
-                               <Button onClick={handleStop} disabled={sessionStatus !== 'running' && sessionStatus !== 'paused'} variant="destructive" className="col-span-2">
+                                <Button onClick={handleResume} disabled={sessionStatus !== 'paused' && sessionStatus !== 'stopped'} variant="outline">
+                                    <Play className="mr-2 h-4 w-4" />
+                                    Resume
+                                </Button>
+                               <Button onClick={handleStop} disabled={sessionStatus !== 'running'} variant="destructive" className="col-span-1">
                                    <StopCircle className="mr-2 h-4 w-4" />
                                    Stop
                                 </Button>
