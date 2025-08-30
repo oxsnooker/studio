@@ -9,7 +9,7 @@ import type { Table as TableType, MenuItem, ActiveSession, Transaction, OrderIte
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Loader2, ArrowLeft, Plus, Minus, Receipt, Play, Pause, Wallet, Smartphone, Split, Award, Search, UserCheck } from 'lucide-react';
+import { Loader2, ArrowLeft, Plus, Minus, Receipt, Play, Pause, Wallet, Smartphone, Split, Award, Search, UserCheck, StopCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -171,15 +171,25 @@ export default function SessionPage() {
     }
 
     const handleResume = () => {
-        if (!session || session.status !== 'paused' || !session.pauseTime) return;
-        const pauseDuration = Math.floor((new Date().getTime() - new Date(session.pauseTime).getTime()) / 1000);
-        const newSession = {
-            ...session,
-            status: 'running' as 'running',
-            totalPauseDuration: session.totalPauseDuration + pauseDuration,
-            pauseTime: undefined,
-        };
-        updateSessionInStorage(newSession);
+        if (!session || !['paused', 'stopped'].includes(session.status)) return;
+    
+        if (session.status === 'paused' && session.pauseTime) {
+            const pauseDuration = Math.floor((new Date().getTime() - new Date(session.pauseTime).getTime()) / 1000);
+            const newSession = {
+                ...session,
+                status: 'running' as 'running',
+                totalPauseDuration: session.totalPauseDuration + pauseDuration,
+                pauseTime: undefined,
+            };
+            updateSessionInStorage(newSession);
+        } else if (session.status === 'stopped') {
+            // Simply set the status back to running without changing durations
+            const newSession = {
+                ...session,
+                status: 'running' as 'running',
+            };
+            updateSessionInStorage(newSession);
+        }
     };
 
     const handleSettleBill = () => {
@@ -375,18 +385,21 @@ export default function SessionPage() {
     };
 
     const handleAddItem = (itemToAdd: MenuItem) => {
-        if (!session) return;
-
-        const newSession = { ...session };
-        const existingItem = newSession.items.find(item => item.id === itemToAdd.id);
-
-        if (existingItem) {
-            existingItem.quantity += 1;
-        } else {
-            newSession.items.push({ ...itemToAdd, quantity: 1 });
-        }
-        
-        updateSessionInStorage(newSession);
+        setSession(currentSession => {
+            if (!currentSession) return null;
+    
+            const newSession = { ...currentSession };
+            const existingItem = newSession.items.find(item => item.id === itemToAdd.id);
+    
+            if (existingItem) {
+                existingItem.quantity += 1;
+            } else {
+                newSession.items.push({ ...itemToAdd, quantity: 1 });
+            }
+            
+            updateSessionInStorage(newSession);
+            return newSession;
+        });
     };
     
     const handleRemoveItem = useCallback((itemIdToRemove: string) => {
@@ -409,7 +422,7 @@ export default function SessionPage() {
             updateSessionInStorage(newSession);
             return newSession;
         });
-    }, [updateSessionInStorage]);
+    }, [tableId]); // Dependency array should be stable
     
     const isSplitPayMismatch = useMemo(() => {
         if (selectedPaymentMethod !== 'Split Pay') return false;
@@ -529,11 +542,14 @@ export default function SessionPage() {
                         </CardContent>
                          {session ? (
                              <CardFooter className="grid grid-cols-3 gap-2 no-print">
-                               <Button onClick={sessionStatus === 'running' ? handlePause : handleResume} disabled={sessionStatus === 'idle' || sessionStatus === 'stopped'} variant="outline">
+                               <Button onClick={sessionStatus === 'running' ? handlePause : handleResume} disabled={sessionStatus === 'idle'} variant="outline">
                                     {sessionStatus === 'running' ? <Pause className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
                                     {sessionStatus === 'running' ? 'Pause' : 'Resume'}
                                </Button>
-                               <Button onClick={handleStop} disabled={sessionStatus !== 'running' && sessionStatus !== 'paused'} variant="destructive" className="col-span-2">Stop</Button>
+                               <Button onClick={handleStop} disabled={sessionStatus !== 'running' && sessionStatus !== 'paused'} variant="destructive" className="col-span-2">
+                                   <StopCircle className="mr-2 h-4 w-4" />
+                                   Stop
+                                </Button>
                              </CardFooter>
                          ) : (
                              <CardFooter className="no-print">
@@ -801,9 +817,5 @@ export default function SessionPage() {
         </div>
     );
 }
-
-    
-
-    
 
     
