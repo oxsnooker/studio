@@ -13,7 +13,7 @@ export default function StaffLayout({
     <div className="flex min-h-screen w-full flex-col bg-muted/5">
       <header className="sticky top-0 flex h-16 items-center justify-between gap-4 border-b bg-background px-4 md:px-6 no-print z-10">
           <Link
-            href="#"
+            href="/staff"
             className="flex items-center gap-2 text-xl font-bold font-headline text-primary"
           >
             THE OX SNOOKER
@@ -23,6 +23,12 @@ export default function StaffLayout({
             <AvatarImage src="https://picsum.photos/100/100" data-ai-hint="male avatar" />
             <AvatarFallback>S</AvatarFallback>
           </Avatar>
+           <Button asChild variant="outline" size="icon">
+            <Link href="/">
+              <LogOut className="h-5 w-5" />
+              <span className="sr-only">Logout</span>
+            </Link>
+          </Button>
         </div>
       </header>
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
