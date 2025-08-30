@@ -4,7 +4,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { getTableById, getMenuItems } from './actions';
+import { getTableById, getMenuItems } from '@/app/staff/actions';
 import type { Table as TableType, MenuItem, ActiveSession } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -88,8 +88,12 @@ export default function SessionPage() {
             setCurrentTime(new Date());
             setSession(prev => {
                 if (!prev || prev.status !== 'running') return prev;
-                const elapsedSeconds = prev.elapsedSeconds + 1;
-                const newSession = { ...prev, elapsedSeconds };
+                
+                // Recalculate elapsed seconds based on start time to avoid drift
+                const elapsed = Math.floor((new Date().getTime() - new Date(prev.startTime).getTime()) / 1000) - prev.totalPauseDuration;
+                if(prev.elapsedSeconds === elapsed) return prev;
+
+                const newSession = { ...prev, elapsedSeconds: elapsed };
                 
                 // Update localStorage
                 const allSessions = JSON.parse(localStorage.getItem('activeSessions') || '{}');
@@ -282,7 +286,7 @@ export default function SessionPage() {
                                 </div>
                                 <div>
                                     <p className="text-muted-foreground">Started At:</p>
-                                    <p>{session.startTime.toLocaleTimeString()}</p>
+                                    <p>{new Date(session.startTime).toLocaleTimeString()}</p>
                                 </div>
                                  <div className="col-span-2 text-right text-xs text-muted-foreground">
                                     Current Time: {currentTime.toLocaleTimeString()}
@@ -290,9 +294,9 @@ export default function SessionPage() {
                             </div>
                         </CardContent>
                         <CardFooter className="grid grid-cols-3 gap-2">
-                           <Button onClick={handleStart} disabled={session.status !== 'stopped'} className="bg-green-600 hover:bg-green-700">Start</Button>
+                           <Button onClick={handleStart} disabled={session.status === 'running' || session.status === 'paused'} className="bg-green-600 hover:bg-green-700">Start</Button>
                            <Button onClick={handleResume} disabled={session.status !== 'paused'} variant="outline">Resume</Button>
-                           <Button onClick={handleStop} disabled={session.status === 'stopped' || session.status === 'paused'} variant="destructive">Stop</Button>
+                           <Button onClick={session.status === 'running' ? handlePause : handleStop} disabled={session.status === 'stopped'} variant="destructive">{session.status === 'running' ? 'Pause' : 'Stop'}</Button>
                         </CardFooter>
                     </Card>
 
@@ -434,6 +438,3 @@ export default function SessionPage() {
         </div>
     );
 }
-
-
-    
