@@ -1,6 +1,8 @@
 
+
 "use client";
 
+import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -9,13 +11,94 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { DollarSign, Clock, Utensils, AppWindow, Calendar as CalendarIcon } from "lucide-react";
-import { dailyRevenue } from "@/lib/data";
+import { DollarSign, Clock, Utensils, AppWindow, Calendar as CalendarIcon, Loader2, Terminal, Receipt } from "lucide-react";
+import { collection, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import type { Transaction } from "@/lib/types";
 
 export default function DashboardPage() {
-  // Mock data - replace with real data fetching
-  const activeTables = 0;
-  const totalTables = 8;
+  const [revenue, setRevenue] = useState({
+    total: 0,
+    tableTime: 0,
+    items: 0,
+  });
+  const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
+  const [topItems, setTopItems] = useState<Record<string, number>>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  const activeTables = 0; // This would be fetched from localStorage or another real-time source
+  const totalTables = 8; // This could be fetched from the 'tables' collection count
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const startOfToday = Timestamp.fromDate(today);
+
+        const q = query(
+          collection(db, "transactions"),
+          where("createdAt", ">=", startOfToday.toMillis())
+        );
+        const querySnapshot = await getDocs(q);
+
+        let totalRev = 0;
+        let tableRev = 0;
+        let itemsRev = 0;
+        const itemsCounter: Record<string, number> = {};
+        
+        const transactionsData: Transaction[] = [];
+        querySnapshot.forEach((doc) => {
+            const data = doc.data() as Transaction;
+            transactionsData.push({ id: doc.id, ...data });
+            totalRev += data.totalAmount;
+            tableRev += data.tableCost;
+            itemsRev += data.itemsCost;
+
+            data.items.forEach(item => {
+                itemsCounter[item.name] = (itemsCounter[item.name] || 0) + item.quantity;
+            });
+        });
+
+        setRevenue({ total: totalRev, tableTime: tableRev, items: itemsRev });
+
+        const sortedTransactions = transactionsData.sort((a, b) => b.createdAt - a.createdAt);
+        setRecentTransactions(sortedTransactions.slice(0, 5));
+
+        const sortedItems = Object.entries(itemsCounter).sort(([, a], [, b]) => b - a);
+        setTopItems(Object.fromEntries(sortedItems.slice(0,5)));
+
+      } catch (e: any) {
+        setError("Failed to fetch dashboard data. Please check Firestore connection and permissions.");
+        console.error(e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert variant="destructive">
+        <Terminal className="h-4 w-4" />
+        <AlertTitle>Error</AlertTitle>
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    );
+  }
+
 
   return (
     <div className="space-y-6">
@@ -23,7 +106,7 @@ export default function DashboardPage() {
         <h2 className="text-2xl font-bold tracking-tight">Today's Overview</h2>
         <Button variant="outline">
           <CalendarIcon className="mr-2 h-4 w-4" />
-          <span>30/08/2025</span>
+          <span>{new Date().toLocaleDateString('en-GB')}</span>
         </Button>
       </div>
 
@@ -39,7 +122,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ₹{dailyRevenue.total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              ₹{revenue.total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
             </div>
           </CardContent>
         </Card>
@@ -54,7 +137,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-               ₹{dailyRevenue.tableTime.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+               ₹{revenue.tableTime.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
             </div>
           </CardContent>
         </Card>
@@ -67,7 +150,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-                ₹{(dailyRevenue.chips + dailyRevenue.drinks).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                ₹{revenue.items.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
             </div>
           </CardContent>
         </Card>
@@ -93,17 +176,49 @@ export default function DashboardPage() {
           <Card>
               <CardHeader>
                   <CardTitle>Recent Activity</CardTitle>
+                  <CardDescription>Today's latest transactions.</CardDescription>
               </CardHeader>
               <CardContent>
-                  <p className="text-sm text-muted-foreground">No transactions yet today.</p>
+                 {recentTransactions.length > 0 ? (
+                    <div className="space-y-4">
+                        {recentTransactions.map(tx => (
+                            <div key={tx.id} className="flex items-center">
+                                <div className="p-2 bg-muted rounded-full mr-3">
+                                    <Receipt className="h-5 w-5 text-muted-foreground" />
+                                </div>
+                                <div className="flex-1">
+                                    <p className="font-medium">{tx.tableName} - {tx.customerName}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        {new Date(tx.createdAt).toLocaleTimeString()} &middot; {tx.paymentMethod}
+                                    </p>
+                                </div>
+                                <p className="font-bold">₹{tx.totalAmount.toLocaleString('en-IN')}</p>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <p className="text-sm text-muted-foreground">No transactions yet today.</p>
+                )}
               </CardContent>
           </Card>
           <Card>
               <CardHeader>
                   <CardTitle>Top Selling Items</CardTitle>
+                  <CardDescription>Today's most popular items.</CardDescription>
               </CardHeader>
               <CardContent>
-                  <p className="text-sm text-muted-foreground">No items sold yet.</p>
+                 {Object.keys(topItems).length > 0 ? (
+                     <div className="space-y-4">
+                        {Object.entries(topItems).map(([name, count]) => (
+                            <div key={name} className="flex justify-between items-center text-sm">
+                                <p className="font-medium">{name}</p>
+                                <p className="text-muted-foreground font-bold">{count} sold</p>
+                            </div>
+                        ))}
+                    </div>
+                 ) : (
+                    <p className="text-sm text-muted-foreground">No items sold yet.</p>
+                 )}
               </CardContent>
           </Card>
        </div>

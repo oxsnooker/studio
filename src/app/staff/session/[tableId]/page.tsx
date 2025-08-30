@@ -1,11 +1,12 @@
 
+
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useTransition } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { getTableById, getMenuItems } from '@/app/staff/actions';
-import type { Table as TableType, MenuItem, ActiveSession } from '@/lib/types';
+import { getTableById, getMenuItems, saveTransaction } from '@/app/staff/actions';
+import type { Table as TableType, MenuItem, ActiveSession, Transaction } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -43,6 +44,7 @@ export default function SessionPage() {
     const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
     const [session, setSession] = useState<ActiveSession | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isPending, startTransition] = useTransition();
     const [currentTime, setCurrentTime] = useState(new Date());
     const [isBillDialogOpen, setIsBillDialogOpen] = useState(false);
     const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
@@ -189,8 +191,8 @@ export default function SessionPage() {
 
 
     const handleCompletePayment = () => {
-        if (!selectedPaymentMethod) {
-            toast({ variant: "destructive", title: "Error", description: "Please select a payment method." });
+        if (!selectedPaymentMethod || !session || !table) {
+            toast({ variant: "destructive", title: "Error", description: "Payment method or session data is missing." });
             return;
         }
 
@@ -202,45 +204,74 @@ export default function SessionPage() {
                 return;
             }
         }
+        
+        startTransition(async () => {
+            const transaction: Transaction = {
+                tableId: table.id,
+                tableName: table.name,
+                startTime: session.startTime.getTime(),
+                endTime: new Date().getTime(),
+                durationSeconds: session.elapsedSeconds,
+                tableCost: parseFloat(tableCost.toFixed(2)),
+                itemsCost: parseFloat(itemsCost.toFixed(2)),
+                totalAmount: totalPayable,
+                paymentMethod: selectedPaymentMethod,
+                items: session.items,
+                customerName: session.customerName,
+                createdAt: Date.now(),
+            };
 
-        if (!tableId) return;
-        updateSessionInStorage(null);
-        toast({ title: 'Success', description: `Bill settled with ${selectedPaymentMethod}.` });
-        router.push('/staff');
+            const result = await saveTransaction(transaction);
+
+            if (result.success) {
+                updateSessionInStorage(null);
+                toast({ title: 'Success', description: `Bill settled with ${selectedPaymentMethod}.` });
+                router.push('/staff');
+            } else {
+                toast({ variant: 'destructive', title: 'Save Error', description: result.message });
+            }
+        });
     };
 
     const handleAddItem = useCallback((itemToAdd: MenuItem) => {
-        if (!session) return;
-        
-        const newSession = {...session};
-        const existingItem = newSession.items.find(i => i.id === itemToAdd.id);
-        
-        if (existingItem) {
-          existingItem.quantity += 1;
-        } else {
-          newSession.items.push({ ...itemToAdd, quantity: 1 });
-        }
-        
-        updateSessionInStorage(newSession);
-    }, [session, tableId]);
+        setSession(currentSession => {
+            if (!currentSession) return null;
+            
+            const newSession = JSON.parse(JSON.stringify(currentSession)); // Deep copy
+            const existingItem = newSession.items.find((i: MenuItem) => i.id === itemToAdd.id);
+            
+            if (existingItem) {
+              existingItem.quantity += 1;
+            } else {
+              newSession.items.push({ ...itemToAdd, quantity: 1 });
+            }
+            
+            updateSessionInStorage(newSession);
+            return newSession;
+        });
+    }, [tableId]);
     
     const handleRemoveItem = useCallback((itemIdToRemove: string) => {
-        if (!session) return;
+        setSession(currentSession => {
+            if (!currentSession) return null;
 
-        const newSession = {...session};
-        const itemIndex = newSession.items.findIndex(i => i.id === itemIdToRemove);
-        if (itemIndex === -1) return;
+            const newSession = JSON.parse(JSON.stringify(currentSession)); // Deep copy
+            const itemIndex = newSession.items.findIndex((i: MenuItem) => i.id === itemIdToRemove);
+            
+            if (itemIndex === -1) return currentSession;
 
-        const item = newSession.items[itemIndex];
-        
-        if (item.quantity > 1) {
-            item.quantity -= 1;
-        } else {
-            newSession.items.splice(itemIndex, 1);
-        }
+            const item = newSession.items[itemIndex];
+            
+            if (item.quantity > 1) {
+                item.quantity -= 1;
+            } else {
+                newSession.items.splice(itemIndex, 1);
+            }
 
-        updateSessionInStorage(newSession);
-    }, [session, tableId]);
+            updateSessionInStorage(newSession);
+            return newSession;
+        });
+    }, [tableId]);
     
     const isSplitPayMismatch = useMemo(() => {
         if (selectedPaymentMethod !== 'Split Pay') return false;
@@ -434,7 +465,7 @@ export default function SessionPage() {
                     </DialogHeader>
                     <div className="space-y-4 my-4">
                         <div className="bg-muted/50 rounded-lg p-4">
-                            <h4 className="font-semibold mb-3">{table.name} - Bill Summary</h4>
+                            <h4 className="font-semibold mb-3">{table?.name} - Bill Summary</h4>
                             <div className="space-y-2 text-sm">
                                 <div className="flex justify-between"><span className="text-muted-foreground">Customer:</span><span>{session?.customerName}</span></div>
                                 <div className="flex justify-between"><span className="text-muted-foreground">Time Cost:</span><span>₹{tableCost.toFixed(2)}</span></div>
@@ -508,12 +539,13 @@ export default function SessionPage() {
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsBillDialogOpen(false)}>Cancel</Button>
-                        <Button className="bg-green-600 hover:bg-green-700" onClick={handleCompletePayment} disabled={!selectedPaymentMethod || isSplitPayMismatch}>Settle Bill</Button>
+                        <Button className="bg-green-600 hover:bg-green-700" onClick={handleCompletePayment} disabled={!selectedPaymentMethod || isSplitPayMismatch || isPending}>
+                            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Settle Bill
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>
     );
 }
-
-    

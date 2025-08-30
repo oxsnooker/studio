@@ -29,6 +29,23 @@ export interface ActiveSession {
   customerName: string;
 }
 
+export interface Transaction {
+    id?: string;
+    tableId: string;
+    tableName: string;
+    startTime: number; // Use number (timestamp) for Firestore
+    endTime: number; // Use number (timestamp) for Firestore
+    durationSeconds: number;
+    tableCost: number;
+    itemsCost: number;
+    totalAmount: number;
+    paymentMethod: string;
+    items: OrderItem[];
+    customerName: string;
+    createdAt: number; // Use number (timestamp) for Firestore
+}
+
+
 export interface Admin {
   id:string;
   username: string;
@@ -58,5 +75,3 @@ export interface Member {
   remainingHours: number;
   mobileNumber?: string;
 }
-
-    
