@@ -54,6 +54,15 @@ type ReportData = {
     itemSales: { name: string; quantity: number; revenue: number }[];
 }
 
+const initialReportData: ReportData = {
+    totalCash: 0,
+    totalUpi: 0,
+    totalMembership: 0,
+    grandTotal: 0,
+    tablePerformance: [],
+    itemSales: [],
+};
+
 export default function ReportsPage() {
   const [staff, setStaff] = useState<Staff[]>([]);
   const { toast } = useToast();
@@ -61,14 +70,15 @@ export default function ReportsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [reportData, setReportData] = useState<ReportData>({
-    totalCash: 0,
-    totalUpi: 0,
-    totalMembership: 0,
-    grandTotal: 0,
-    tablePerformance: [],
-    itemSales: [],
-  });
+  const [reportData, setReportData] = useState<ReportData>(initialReportData);
+
+  const handleClearReports = () => {
+    setReportData(initialReportData);
+    toast({
+        title: "Reports Cleared",
+        description: "All report data has been cleared from the view.",
+    });
+  }
 
   // Fetch staff for filter dropdown
   useEffect(() => {
@@ -172,7 +182,7 @@ export default function ReportsPage() {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold tracking-tight">Sales Reports</h2>
         <div className="flex items-center gap-2">
-           <Button variant="outline">
+           <Button variant="outline" onClick={handleClearReports}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Clear
           </Button>
