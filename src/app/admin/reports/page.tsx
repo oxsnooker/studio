@@ -43,6 +43,17 @@ import { useToast } from "@/hooks/use-toast";
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, Timestamp, orderBy } from 'firebase/firestore';
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 
 type ReportData = {
@@ -182,10 +193,26 @@ export default function ReportsPage() {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold tracking-tight">Sales Reports</h2>
         <div className="flex items-center gap-2">
-           <Button variant="outline" onClick={handleClearReports}>
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Clear
-          </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline">
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Clear
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will clear all the currently displayed report data. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleClearReports}>Continue</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           <Button variant="destructive" className="bg-red-600 hover:bg-red-700">
             <FileDown className="mr-2 h-4 w-4" />
             Export PDF
@@ -382,5 +409,3 @@ export default function ReportsPage() {
     </div>
   );
 }
-
-    
