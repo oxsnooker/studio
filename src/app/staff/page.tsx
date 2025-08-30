@@ -116,7 +116,7 @@ export default function StaffDashboard() {
     router.push(`/staff/session/${table.id}`);
   };
 
-  const filteredTables = tables.filter(table => activeTab === 'All Tables' || table.category === activeTab);
+  const filteredTables = (tables || []).filter(table => activeTab === 'All Tables' || table.category === activeTab);
 
   const renderTableCard = (table: TableType) => {
     if (!table.id) return null;
