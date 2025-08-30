@@ -79,8 +79,11 @@ export default function SessionPage() {
         });
         if (allSessions[tableId]) {
             setSession(allSessions[tableId]);
+        } else {
+            // This case shouldn't happen with the new workflow, but as a fallback:
+            router.push('/staff');
         }
-    }, [tableId]);
+    }, [tableId, router]);
     
     // Timer updates
     useEffect(() => {
@@ -116,19 +119,6 @@ export default function SessionPage() {
         setSession(newSession);
     };
 
-    const handleStart = () => {
-        if (!table) return;
-
-        const newSession: ActiveSession = {
-            startTime: new Date(),
-            elapsedSeconds: 0,
-            status: 'running',
-            items: session?.items || [], // Keep items if they were added before starting
-            totalPauseDuration: 0,
-            customerName: session?.customerName || 'Walk-in Customer'
-        };
-        updateSessionInStorage(newSession);
-    };
 
     const handlePause = () => { 
         setSession(prev => {
@@ -184,14 +174,9 @@ export default function SessionPage() {
 
     const handleAddItem = (item: MenuItem) => {
         setSession(prev => {
-            const currentSession = prev || {
-                startTime: new Date(),
-                elapsedSeconds: 0,
-                status: 'not-started',
-                items: [],
-                totalPauseDuration: 0,
-                customerName: 'Walk-in Customer'
-            };
+            if(!prev) return prev;
+            
+            const currentSession = prev;
 
             const existingItem = currentSession.items.find(i => i.id === item.id);
             let newItems;
@@ -221,29 +206,20 @@ export default function SessionPage() {
             return newSession;
         });
     };
-
-    const effectiveSession = useMemo(() => session || {
-        startTime: new Date(),
-        elapsedSeconds: 0,
-        status: 'not-started',
-        items: [],
-        totalPauseDuration: 0,
-        customerName: 'Walk-in Customer',
-    }, [session]);
-
+    
     const tableCost = useMemo(() => {
-        if (!effectiveSession || !table) return 0;
-        return (effectiveSession.elapsedSeconds / 3600) * table.rate;
-    }, [effectiveSession, table]);
+        if (!session || !table) return 0;
+        return (session.elapsedSeconds / 3600) * table.rate;
+    }, [session, table]);
 
     const itemsCost = useMemo(() => {
-        if (!effectiveSession) return 0;
-        return effectiveSession.items.reduce((acc, item) => acc + item.price * item.quantity, 0);
-    }, [effectiveSession]);
+        if (!session) return 0;
+        return session.items.reduce((acc, item) => acc + item.price * item.quantity, 0);
+    }, [session]);
 
     const totalPayable = tableCost + itemsCost;
 
-    if (isLoading) {
+    if (isLoading || !session) {
         return (
             <div className="flex h-screen items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -272,13 +248,13 @@ export default function SessionPage() {
                                 <CardTitle className="text-lg">{table.name}</CardTitle>
                                 <p className="text-sm text-muted-foreground">{table.category} Table</p>
                             </div>
-                            {effectiveSession.status !== 'not-started' && <Badge className={effectiveSession.status === 'running' ? 'bg-green-500' : 'bg-yellow-500'}>{effectiveSession.status.charAt(0).toUpperCase() + effectiveSession.status.slice(1)}</Badge>}
+                            <Badge className={session.status === 'running' ? 'bg-green-500' : 'bg-yellow-500'}>{session.status.charAt(0).toUpperCase() + session.status.slice(1)}</Badge>
                         </CardHeader>
                         <CardContent>
                             <div className="grid grid-cols-2 gap-4 text-sm mt-4">
                                 <div>
                                     <p className="text-muted-foreground">Timer</p>
-                                    <p className="text-2xl font-mono font-bold">{formatDuration(effectiveSession.elapsedSeconds)}</p>
+                                    <p className="text-2xl font-mono font-bold">{formatDuration(session.elapsedSeconds)}</p>
                                 </div>
                                 <div>
                                     <p className="text-muted-foreground">Price per hour</p>
@@ -290,7 +266,7 @@ export default function SessionPage() {
                                 </div>
                                 <div>
                                     <p className="text-muted-foreground">Started At:</p>
-                                    <p>{effectiveSession.status === 'not-started' ? 'Not started' : new Date(effectiveSession.startTime).toLocaleTimeString()}</p>
+                                    <p>{new Date(session.startTime).toLocaleTimeString()}</p>
                                 </div>
                                  <div className="col-span-2 text-right text-xs text-muted-foreground">
                                     Current Time: {currentTime.toLocaleTimeString()}
@@ -298,10 +274,9 @@ export default function SessionPage() {
                             </div>
                         </CardContent>
                         <CardFooter className="grid grid-cols-2 gap-2">
-                           {effectiveSession.status === 'not-started' && <Button onClick={handleStart} className="col-span-2 bg-green-600 hover:bg-green-700"><Play className="mr-2 h-4 w-4"/>Start</Button>}
-                           {effectiveSession.status === 'running' && <Button onClick={handlePause} variant="destructive">Pause</Button>}
-                           {effectiveSession.status === 'paused' && <Button onClick={handleResume} variant="outline">Resume</Button>}
-                           {effectiveSession.status !== 'not-started' && <Button onClick={handleStop} disabled={effectiveSession.status === 'stopped'} variant={effectiveSession.status === 'running' ? 'outline': 'destructive'}>Stop</Button>}
+                           {session.status === 'running' && <Button onClick={handlePause} variant="destructive">Pause</Button>}
+                           {session.status === 'paused' && <Button onClick={handleResume} variant="outline">Resume</Button>}
+                           <Button onClick={handleStop} disabled={session.status === 'stopped'} variant={session.status === 'running' ? 'outline': 'destructive'}>Stop</Button>
                         </CardFooter>
                     </Card>
 
@@ -310,7 +285,7 @@ export default function SessionPage() {
                             <CardTitle className="text-base">Customer Name</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <p>{effectiveSession.customerName}</p>
+                            <p>{session.customerName}</p>
                         </CardContent>
                     </Card>
                 </div>
@@ -331,10 +306,10 @@ export default function SessionPage() {
                                             <p className="text-xs text-muted-foreground">{item.category} - ₹{item.price.toFixed(2)}</p>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <Button variant="outline" size="icon" className="h-7 w-7 rounded-full bg-red-100 text-red-600 hover:bg-red-200" onClick={() => handleRemoveItem(item.id)}>
+                                            <Button variant="outline" size="icon" className="h-7 w-7 rounded-full bg-red-100 text-red-600 hover:bg-red-200" onClick={() => handleRemoveItem(item.id!)}>
                                                 <Minus className="h-4 w-4" />
                                             </Button>
-                                            <span className="w-4 text-center font-bold">{effectiveSession.items.find(i => i.id === item.id)?.quantity || 0}</span>
+                                            <span className="w-4 text-center font-bold">{session.items.find(i => i.id === item.id)?.quantity || 0}</span>
                                             <Button variant="outline" size="icon" className="h-7 w-7 rounded-full bg-green-100 text-green-600 hover:bg-green-200" onClick={() => handleAddItem(item)}>
                                                 <Plus className="h-4 w-4" />
                                             </Button>
@@ -354,11 +329,11 @@ export default function SessionPage() {
                             <CardTitle>Checkout Summary</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                             {effectiveSession.items.length === 0 ? (
+                             {session.items.length === 0 ? (
                                 <p className="text-sm text-center text-muted-foreground py-8">No items added</p>
                             ) : (
                                 <ScrollArea className="h-48 pr-4">
-                                    {effectiveSession.items.map(item => (
+                                    {session.items.map(item => (
                                         <div key={item.id} className="flex justify-between text-sm mb-2">
                                             <span>{item.quantity} x {item.name}</span>
                                             <span>₹{(item.quantity * item.price).toFixed(2)}</span>
@@ -380,11 +355,11 @@ export default function SessionPage() {
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Customer:</span>
-                                    <span>{effectiveSession.customerName}</span>
+                                    <span>{session.customerName}</span>
                                 </div>
                                  <div className="flex justify-between">
                                     <span className="text-muted-foreground">Status:</span>
-                                    <span className="font-medium text-primary">{effectiveSession.status.charAt(0).toUpperCase() + effectiveSession.status.slice(1)}</span>
+                                    <span className="font-medium text-primary">{session.status.charAt(0).toUpperCase() + session.status.slice(1)}</span>
                                 </div>
                             </div>
                         </CardContent>
@@ -393,10 +368,10 @@ export default function SessionPage() {
                                 <span className="text-lg font-bold">Total Payable:</span>
                                 <span className="text-2xl font-bold">₹{totalPayable.toFixed(2)}</span>
                             </div>
-                            <Button size="lg" onClick={handleSettleBill} disabled={effectiveSession.status !== 'stopped'}>
+                            <Button size="lg" onClick={handleSettleBill} disabled={session.status !== 'stopped'}>
                                 <Receipt className="mr-2 h-5 w-5" /> Settle Bill
                             </Button>
-                             {effectiveSession.status !== 'stopped' && effectiveSession.status !== 'not-started' &&(
+                             {session.status !== 'stopped' && (
                                 <p className="text-xs text-center text-red-500">Please 'Stop' the timer to settle the bill.</p>
                             )}
                         </CardFooter>
@@ -415,7 +390,7 @@ export default function SessionPage() {
                         <Card className="p-4">
                             <h4 className="font-semibold mb-2">Bill Summary</h4>
                             <div className="space-y-2 text-sm">
-                                <div className="flex justify-between"><span className="text-muted-foreground">Customer:</span><span>{effectiveSession.customerName}</span></div>
+                                <div className="flex justify-between"><span className="text-muted-foreground">Customer:</span><span>{session.customerName}</span></div>
                                 <div className="flex justify-between"><span className="text-muted-foreground">Time Cost:</span><span>₹{tableCost.toFixed(2)}</span></div>
                                 <div className="flex justify-between"><span className="text-muted-foreground">Items Cost:</span><span>₹{itemsCost.toFixed(2)}</span></div>
                                 <Separator className="my-2"/>
