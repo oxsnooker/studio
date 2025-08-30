@@ -115,22 +115,6 @@ export default function StaffDashboard() {
 
   const handleCardClick = (table: TableType) => {
     if (!table.id) return;
-    const allSessions: Record<string, ActiveSession> = JSON.parse(localStorage.getItem('activeSessions') || '{}');
-    const existingSession = allSessions[table.id];
-
-    if (!existingSession) {
-      const newSession: ActiveSession = {
-        startTime: new Date(),
-        elapsedSeconds: 0,
-        status: 'running',
-        items: [],
-        totalPauseDuration: 0,
-        customerName: 'Walk-in Customer'
-      };
-      allSessions[table.id] = newSession;
-      localStorage.setItem('activeSessions', JSON.stringify(allSessions));
-    }
-    
     router.push(`/staff/session/${table.id}`);
   };
 
@@ -187,5 +171,3 @@ export default function StaffDashboard() {
     </>
   );
 }
-
-    
