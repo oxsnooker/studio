@@ -29,28 +29,52 @@ import { login } from "@/app/actions";
 import { Logo } from "@/components/logo";
 import { Loader2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
-const formSchema = z.object({
+
+const staffFormSchema = z.object({
   username: z.string().min(1, "Username is required"),
   password: z.string().min(1, "Password is required"),
   role: z.literal("staff", { required_error: "Role is required" }),
+});
+
+const adminFormSchema = z.object({
+    password: z.string().min(1, "Password is required"),
+    role: z.literal("admin", { required_error: "Role is required" }),
 });
 
 export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
+  const [isAdminDialogOpen, setIsAdminDialogOpen] = useState(false);
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+  const staffForm = useForm<z.infer<typeof staffFormSchema>>({
+    resolver: zodResolver(staffFormSchema),
     defaultValues: {
       username: "",
       password: "",
       role: "staff",
     },
   });
+  
+  const adminForm = useForm<z.infer<typeof adminFormSchema>>({
+    resolver: zodResolver(adminFormSchema),
+    defaultValues: {
+        password: "",
+        role: "admin",
+    },
+  });
 
-  const onStaffSubmit = (values: z.infer<typeof formSchema>) => {
+  const onStaffSubmit = (values: z.infer<typeof staffFormSchema>) => {
     startTransition(async () => {
       const result = await login(values);
       if (result.success) {
@@ -65,22 +89,24 @@ export default function LoginPage() {
           title: "Login Failed",
           description: result.message,
         });
-        form.reset();
+        staffForm.reset();
       }
     });
   };
 
-  const onAdminLogin = () => {
+  const onAdminSubmit = (values: z.infer<typeof adminFormSchema>) => {
     startTransition(async () => {
-        const result = await login({ role: "admin" });
+        const result = await login(values);
         if (result.success) {
             router.push(result.redirect);
+            setIsAdminDialogOpen(false);
         } else {
             toast({
                 variant: "destructive",
                 title: "Login Failed",
                 description: result.message,
             });
+            adminForm.reset();
         }
     });
   }
@@ -100,10 +126,10 @@ export default function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onStaffSubmit)} className="space-y-4">
+          <Form {...staffForm}>
+            <form onSubmit={staffForm.handleSubmit(onStaffSubmit)} className="space-y-4">
               <FormField
-                control={form.control}
+                control={staffForm.control}
                 name="username"
                 render={({ field }) => (
                   <FormItem>
@@ -116,7 +142,7 @@ export default function LoginPage() {
                 )}
               />
               <FormField
-                control={form.control}
+                control={staffForm.control}
                 name="password"
                 render={({ field }) => (
                   <FormItem>
@@ -140,12 +166,50 @@ export default function LoginPage() {
                 OR
               </span>
           </div>
-           <Button onClick={onAdminLogin} variant="secondary" className="w-full" disabled={isPending}>
+           <Button onClick={() => setIsAdminDialogOpen(true)} variant="secondary" className="w-full" disabled={isPending}>
               {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Go to Admin Panel
           </Button>
         </CardContent>
       </Card>
+
+        {/* Admin Password Dialog */}
+        <Dialog open={isAdminDialogOpen} onOpenChange={setIsAdminDialogOpen}>
+            <DialogContent>
+                <Form {...adminForm}>
+                    <form onSubmit={adminForm.handleSubmit(onAdminSubmit)}>
+                        <DialogHeader>
+                            <DialogTitle>Admin Access</DialogTitle>
+                            <DialogDescription>
+                                Please enter the administrator password to continue.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="py-4">
+                             <FormField
+                                control={adminForm.control}
+                                name="password"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Password</FormLabel>
+                                    <FormControl>
+                                    <Input type="password" placeholder="••••••••" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                        </div>
+                        <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => setIsAdminDialogOpen(false)}>Cancel</Button>
+                            <Button type="submit" disabled={isPending}>
+                                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Login
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </Form>
+            </DialogContent>
+        </Dialog>
     </main>
   );
 }

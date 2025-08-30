@@ -21,7 +21,11 @@ export async function login(
     const { username, password, role } = loginSchema.parse(input);
 
     if (role === "admin") {
-      return { success: true, message: "Admin login successful", redirect: "/admin" };
+      // Hardcoded admin password check
+      if (password === "Teamox76@=172089") {
+        return { success: true, message: "Admin login successful", redirect: "/admin" };
+      }
+      return { success: false, message: "Invalid Admin Password.", redirect: "" };
     } 
     
     if (role === "staff") {
