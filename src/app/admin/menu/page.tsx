@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -17,7 +18,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { PlusCircle, Edit, Trash2 } from "lucide-react";
+import { PlusCircle, Edit, Trash2, Loader2, Terminal } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -28,36 +29,78 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { initialMenuItems, type MenuItem as MenuItemType } from "@/lib/data";
+import { getMenuItems, addMenuItem, updateMenuItem, deleteMenuItem } from "./actions";
+import { useToast } from "@/hooks/use-toast";
+import type { MenuItem as MenuItemType } from "@/lib/types";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+
 
 export default function MenuPage() {
-  const [menuItems, setMenuItems] = useState<MenuItemType[]>(initialMenuItems);
+  const [menuItems, setMenuItems] = useState<MenuItemType[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItemType | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const { toast } = useToast();
 
-  const handleAddOrUpdateItem = (event: React.FormEvent<HTMLFormElement>) => {
+  useEffect(() => {
+    const fetchItems = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const fetchedItems = await getMenuItems();
+        setMenuItems(fetchedItems);
+      } catch (e: any) {
+        setError("An error occurred while fetching menu items. Please ensure your Firestore database is set up correctly and security rules allow access.");
+        console.error(e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchItems();
+  }, []);
+
+  const handleFormSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
-    const name = formData.get("name") as string;
-    const price = parseFloat(formData.get("price") as string);
-
-    if (editingItem) {
-      setMenuItems(
-        menuItems.map((item) => (item.id === editingItem.id ? { ...item, name, price } : item))
-      );
-    } else {
-      const newItem: MenuItemType = {
-        id: `item-${menuItems.length + 1}`,
-        name,
-        price,
-      };
-      setMenuItems([...menuItems, newItem]);
-    }
-    closeDialog();
+    
+    startTransition(async () => {
+      const action = editingItem
+        ? updateMenuItem.bind(null, editingItem?.id!)
+        : addMenuItem;
+        
+      try {
+        const result = await action(formData);
+        if (result.success) {
+          toast({ title: "Success", description: result.message });
+          const fetchedItems = await getMenuItems();
+          setMenuItems(fetchedItems);
+          closeDialog();
+        } else {
+          toast({ variant: "destructive", title: "Error", description: result.message });
+        }
+      } catch (error) {
+         toast({ variant: "destructive", title: "Error", description: "An unexpected error occurred." });
+      }
+    });
   };
-  
+
   const handleDeleteItem = (id: string) => {
-    setMenuItems(menuItems.filter((item) => item.id !== id));
+    startTransition(async () => {
+      try {
+        const result = await deleteMenuItem(id);
+        if (result.success) {
+          toast({ title: "Success", description: result.message });
+          const fetchedItems = await getMenuItems();
+          setMenuItems(fetchedItems);
+        } else {
+          toast({ variant: "destructive", title: "Error", description: result.message });
+        }
+      } catch (error) {
+        toast({ variant: "destructive", title: "Error", description: "An unexpected error occurred." });
+      }
+    });
   };
 
   const openEditDialog = (item: MenuItemType) => {
@@ -75,21 +118,27 @@ export default function MenuPage() {
     setEditingItem(null);
   };
 
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle>Menu & Price Management</CardTitle>
-          <CardDescription>
-            Add, edit, or remove snacks and drinks from the menu.
-          </CardDescription>
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <div className="flex justify-center items-center h-48">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
-        <Button onClick={openAddDialog}>
-          <PlusCircle className="mr-2 h-4 w-4" /> Add New Item
-        </Button>
-      </CardHeader>
-      <CardContent>
-        <Table>
+      );
+    }
+
+    if (error) {
+        return (
+            <Alert variant="destructive">
+                <Terminal className="h-4 w-4" />
+                <AlertTitle>Connection Error</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+            </Alert>
+        )
+    }
+
+    return (
+       <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Item Name</TableHead>
@@ -110,7 +159,8 @@ export default function MenuPage() {
                     variant="ghost"
                     size="icon"
                     className="text-destructive hover:text-destructive"
-                    onClick={() => handleDeleteItem(item.id)}
+                    onClick={() => handleDeleteItem(item.id!)}
+                    disabled={isPending}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -119,11 +169,29 @@ export default function MenuPage() {
             ))}
           </TableBody>
         </Table>
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle>Menu & Price Management</CardTitle>
+          <CardDescription>
+            Add, edit, or remove snacks and drinks from the menu.
+          </CardDescription>
+        </div>
+        <Button onClick={openAddDialog}>
+          <PlusCircle className="mr-2 h-4 w-4" /> Add New Item
+        </Button>
+      </CardHeader>
+      <CardContent>
+        {renderContent()}
       </CardContent>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
-          <form onSubmit={handleAddOrUpdateItem}>
+          <form onSubmit={handleFormSubmit}>
             <DialogHeader>
               <DialogTitle>{editingItem ? "Edit Menu Item" : "Add New Item"}</DialogTitle>
               <DialogDescription>
@@ -146,7 +214,10 @@ export default function MenuPage() {
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={closeDialog}>Cancel</Button>
-              <Button type="submit">{editingItem ? "Save Changes" : "Add Item"}</Button>
+              <Button type="submit" disabled={isPending}>
+                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {editingItem ? "Save Changes" : "Add Item"}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
