@@ -26,6 +26,8 @@ import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { getMembershipPlans } from '@/app/admin/memberships/actions';
 import { format } from "date-fns";
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 
 const formatDuration = (seconds: number) => {
@@ -211,6 +213,112 @@ export default function SessionPage() {
         return Math.floor(tableCost + itemsCost);
     }, [tableCost, itemsCost]);
 
+    const generateInvoicePdf = (transaction: Transaction) => {
+        if (!table) return;
+
+        const doc = new jsPDF();
+        const billingDate = new Date().toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' });
+        const memberPlan = selectedMember ? membershipPlans.find(p => p.id === selectedMember.planId) : null;
+
+        // Title
+        doc.setFontSize(22);
+        doc.text("INVOICE", doc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
+        doc.setFontSize(16);
+        doc.text(`${table.category} : ${table.name}`, doc.internal.pageSize.getWidth() / 2, 30, { align: 'center' });
+
+        // Customer Details
+        const customerDetails = [
+            { title: 'Customer Name', value: transaction.customerName },
+            { title: 'Phone', value: selectedMember?.mobileNumber || 'N/A' },
+            { title: 'Payment Method', value: transaction.paymentMethod },
+            { title: 'Billing Date', value: billingDate },
+            { title: 'Subscription Status', value: selectedMember ? 'Active' : 'N/A' },
+            { title: 'Subscription End Date', value: selectedMember?.validityDate ? format(new Date(selectedMember.validityDate), "PP") : 'N/A' },
+            { title: 'Plan', value: memberPlan?.name || 'N/A' },
+            { title: 'Plan Cost', value: memberPlan ? `₹${memberPlan.price}` : 'N/A' },
+            { title: 'Subscription Time', value: memberPlan ? `${memberPlan.totalHours} hrs` : 'N/A' },
+            { title: 'Remaining Time', value: selectedMember ? `${selectedMember.remainingHours.toFixed(2)} hrs` : 'N/A' },
+        ];
+
+        autoTable(doc, {
+            startY: 40,
+            head: [['Customer Details', '']],
+            body: customerDetails.map(d => [d.title, d.value]),
+            theme: 'striped',
+            headStyles: { fillColor: [22, 163, 74] },
+            didParseCell: (data) => {
+                if (data.section === 'head') {
+                    data.cell.styles.halign = 'center';
+                }
+                if(data.column.index === 0) {
+                    data.cell.styles.fontStyle = 'bold';
+                }
+            }
+        });
+
+        // Purchased Items
+        let finalY = (doc as any).lastAutoTable.finalY + 10;
+        autoTable(doc, {
+            startY: finalY,
+            head: [['Item', 'Quantity', 'Price per Unit (Rs)', 'Total Price (Rs)']],
+            body: transaction.items.map(i => [i.name, i.quantity, i.price.toFixed(2), (i.price * i.quantity).toFixed(2)]),
+            theme: 'striped',
+            headStyles: { fillColor: [37, 99, 235] },
+        });
+
+        // Timer Details
+        finalY = (doc as any).lastAutoTable.finalY + 10;
+        const timerDetails = [
+            { title: 'Started At', value: new Date(transaction.startTime).toLocaleString() },
+            { title: 'Ended At', value: new Date(transaction.endTime).toLocaleString() },
+            { title: 'Timer Duration', value: formatDuration(transaction.durationSeconds) },
+            { title: 'Timer Price (Rs)', value: transaction.tableCost.toFixed(2) },
+        ];
+        autoTable(doc, {
+            startY: finalY,
+            head: [['Timer Details', '']],
+            body: timerDetails.map(d => [d.title, d.value]),
+            theme: 'striped',
+            headStyles: { fillColor: [245, 158, 11] },
+             didParseCell: (data) => {
+                if (data.section === 'head') {
+                    data.cell.styles.halign = 'center';
+                }
+                 if(data.column.index === 0) {
+                    data.cell.styles.fontStyle = 'bold';
+                }
+            }
+        });
+        
+        // Summary
+        finalY = (doc as any).lastAutoTable.finalY + 10;
+        const summaryDetails = [
+            { title: 'Time Benefit Applied', value: transaction.paymentMethod === 'Membership' ? 'Yes' : 'No' },
+            { title: 'Total Amount (Rs)', value: `₹${transaction.totalAmount.toFixed(2)}` },
+        ];
+        autoTable(doc, {
+            startY: finalY,
+            head: [['Summary', '']],
+            body: summaryDetails.map(d => [d.title, d.value]),
+            theme: 'striped',
+            headStyles: { fillColor: [220, 38, 38] },
+             didParseCell: (data) => {
+                if (data.section === 'head') {
+                    data.cell.styles.halign = 'center';
+                }
+                 if(data.column.index === 0) {
+                    data.cell.styles.fontStyle = 'bold';
+                }
+                if (data.row.index === 1 && data.column.index === 1) {
+                     data.cell.styles.fontStyle = 'bold';
+                     data.cell.styles.fontSize = 14;
+                }
+            }
+        });
+
+        doc.save(`invoice-${transaction.tableName}-${new Date().getTime()}.pdf`);
+    };
+
 
     const handleCompletePayment = () => {
         if (!selectedPaymentMethod || !session || !table) {
@@ -265,6 +373,7 @@ export default function SessionPage() {
             }
 
             if (result.success) {
+                generateInvoicePdf(transaction);
                 updateSessionInStorage(null);
                 toast({ title: 'Success', description: `Bill settled with ${selectedPaymentMethod}.` });
                 router.push('/staff');
@@ -707,5 +816,7 @@ export default function SessionPage() {
         </div>
     );
 }
+
+    
 
     
