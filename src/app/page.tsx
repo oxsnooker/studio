@@ -82,7 +82,7 @@ export default function LoginPage() {
           title: "Login Successful",
           description: `Welcome, ${values.username}!`,
         });
-        router.push(result.redirect);
+        router.push('/staff');
       } else {
         toast({
           variant: "destructive",
@@ -98,7 +98,7 @@ export default function LoginPage() {
     startTransition(async () => {
         const result = await login(values);
         if (result.success) {
-            router.push(result.redirect);
+            router.push('/admin');
             setIsAdminDialogOpen(false);
         } else {
             toast({
