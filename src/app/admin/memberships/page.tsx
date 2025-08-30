@@ -24,9 +24,8 @@ import {
   getMembers,
   addMembershipPlan,
   addMember,
-  type MembershipPlan,
-  type Member,
 } from "./actions";
+import type { MembershipPlan, Member } from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Loader2, PlusCircle, Terminal, Crown } from "lucide-react";

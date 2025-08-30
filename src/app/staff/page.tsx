@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from 'next/navigation';
 import type { Table as TableType } from "@/lib/types";
 import {
@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getTables } from "@/app/admin/tables/actions";
-import { ActiveSession } from "@/lib/types";
+import type { ActiveSession } from "@/lib/types";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
@@ -48,7 +48,6 @@ export default function StaffDashboard() {
   const { toast } = useToast();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("All Tables");
-  const [isPending, startTransition] = useTransition();
 
   // Fetch initial data for tables and menu items
   useEffect(() => {

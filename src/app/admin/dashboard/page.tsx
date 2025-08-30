@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -15,6 +14,7 @@ import { DollarSign, Clock, Utensils, AppWindow, Calendar as CalendarIcon, Loade
 import { collection, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Transaction } from "@/lib/types";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 export default function DashboardPage() {
   const [revenue, setRevenue] = useState({

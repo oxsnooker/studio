@@ -16,7 +16,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -550,5 +549,3 @@ export default function SessionPage() {
         </div>
     );
 }
-
-    
