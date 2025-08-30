@@ -9,7 +9,9 @@ import type { MenuItem } from '@/lib/types';
 
 const menuItemSchema = z.object({
   name: z.string().min(1, 'Item name is required.'),
+  category: z.string().min(1, 'Category is required.'),
   price: z.coerce.number().min(0, 'Price must be a positive number.'),
+  stock: z.coerce.number().min(0, 'Stock must be a positive number.'),
 });
 
 export async function getMenuItems(): Promise<MenuItem[]> {
@@ -26,7 +28,9 @@ export async function getMenuItems(): Promise<MenuItem[]> {
 export async function addMenuItem(formData: FormData) {
   const parsed = menuItemSchema.parse({
     name: formData.get('name'),
+    category: formData.get('category'),
     price: formData.get('price'),
+    stock: formData.get('stock'),
   });
 
   await addDoc(collection(db, 'menuItems'), parsed);
@@ -42,7 +46,9 @@ export async function updateMenuItem(id: string, formData: FormData) {
 
     const parsed = menuItemSchema.parse({
         name: formData.get('name'),
+        category: formData.get('category'),
         price: formData.get('price'),
+        stock: formData.get('stock'),
     });
     
     const menuItemRef = doc(db, 'menuItems', id);

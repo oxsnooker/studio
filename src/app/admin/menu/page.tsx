@@ -33,6 +33,7 @@ import { getMenuItems, addMenuItem, updateMenuItem, deleteMenuItem } from "./act
 import { useToast } from "@/hooks/use-toast";
 import type { MenuItem as MenuItemType } from "@/lib/types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 
 
 export default function MenuPage() {
@@ -142,7 +143,9 @@ export default function MenuPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Item Name</TableHead>
+              <TableHead>Category</TableHead>
               <TableHead>Price</TableHead>
+              <TableHead>Stock</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -150,7 +153,9 @@ export default function MenuPage() {
             {menuItems.map((item) => (
               <TableRow key={item.id}>
                 <TableCell className="font-medium">{item.name}</TableCell>
+                <TableCell>{item.category}</TableCell>
                 <TableCell>₹{item.price.toFixed(2)}</TableCell>
+                <TableCell><Badge variant="secondary">{item.stock}</Badge></TableCell>
                 <TableCell className="text-right">
                   <Button variant="ghost" size="icon" onClick={() => openEditDialog(item)}>
                     <Edit className="h-4 w-4" />
@@ -176,13 +181,13 @@ export default function MenuPage() {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
-          <CardTitle>Menu & Price Management</CardTitle>
+          <CardTitle>Snack & Drink Management</CardTitle>
           <CardDescription>
-            Add, edit, or remove snacks and drinks from the menu.
+            Add, edit, or delete items, prices, and stock levels.
           </CardDescription>
         </div>
         <Button onClick={openAddDialog}>
-          <PlusCircle className="mr-2 h-4 w-4" /> Add New Item
+          <PlusCircle className="mr-2 h-4 w-4" /> Add Item
         </Button>
       </CardHeader>
       <CardContent>
@@ -206,10 +211,22 @@ export default function MenuPage() {
                 <Input id="name" name="name" defaultValue={editingItem?.name || ""} className="col-span-3" required />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="category" className="text-right">
+                  Category
+                </Label>
+                <Input id="category" name="category" defaultValue={editingItem?.category || ""} className="col-span-3" required />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="price" className="text-right">
                   Price (₹)
                 </Label>
                 <Input id="price" name="price" type="number" step="0.01" defaultValue={editingItem?.price || ""} className="col-span-3" required />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="stock" className="text-right">
+                  Stock
+                </Label>
+                <Input id="stock" name="stock" type="number" defaultValue={editingItem?.stock || ""} className="col-span-3" required />
               </div>
             </div>
             <DialogFooter>

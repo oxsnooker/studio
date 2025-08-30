@@ -9,7 +9,9 @@ export interface Table {
 export interface MenuItem {
   id: string;
   name: string;
+  category: string;
   price: number;
+  stock: number;
 }
 
 export interface OrderItem extends MenuItem {
