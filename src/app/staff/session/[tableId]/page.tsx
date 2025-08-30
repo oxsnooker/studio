@@ -155,40 +155,31 @@ export default function SessionPage() {
     };
 
     const handlePause = () => { 
-        setSession(prev => {
-            if (!prev || prev.status !== 'running') return prev;
-            const newSession = { ...prev, status: 'paused' as 'paused', pauseTime: new Date() };
-            updateSessionInStorage(newSession);
-            return newSession;
-        });
+        if (!session || session.status !== 'running') return;
+        const newSession = { ...session, status: 'paused' as 'paused', pauseTime: new Date() };
+        updateSessionInStorage(newSession);
     };
     
     const handleStop = () => {
-        setSession(prev => {
-            if (!prev) return prev;
-            let finalElapsed = prev.elapsedSeconds;
-            if (prev.status === 'running') {
-                 finalElapsed = Math.floor((new Date().getTime() - new Date(prev.startTime).getTime())/1000) - prev.totalPauseDuration;
-            }
-            const newSession = { ...prev, status: 'stopped' as 'stopped', elapsedSeconds: finalElapsed };
-            updateSessionInStorage(newSession);
-            return newSession;
-        });
+        if (!session) return;
+        let finalElapsed = session.elapsedSeconds;
+        if (session.status === 'running') {
+            finalElapsed = Math.floor((new Date().getTime() - new Date(session.startTime).getTime())/1000) - session.totalPauseDuration;
+        }
+        const newSession = { ...session, status: 'stopped' as 'stopped', elapsedSeconds: finalElapsed };
+        updateSessionInStorage(newSession);
     }
 
     const handleResume = () => {
-        setSession(prev => {
-            if (!prev || prev.status !== 'paused' || !prev.pauseTime) return prev;
-            const pauseDuration = Math.floor((new Date().getTime() - new Date(prev.pauseTime).getTime()) / 1000);
-            const newSession = {
-                ...prev,
-                status: 'running' as 'running',
-                totalPauseDuration: prev.totalPauseDuration + pauseDuration,
-                pauseTime: undefined,
-            };
-            updateSessionInStorage(newSession);
-            return newSession;
-        });
+        if (!session || session.status !== 'paused' || !session.pauseTime) return;
+        const pauseDuration = Math.floor((new Date().getTime() - new Date(session.pauseTime).getTime()) / 1000);
+        const newSession = {
+            ...session,
+            status: 'running' as 'running',
+            totalPauseDuration: session.totalPauseDuration + pauseDuration,
+            pauseTime: undefined,
+        };
+        updateSessionInStorage(newSession);
     };
 
     const handleSettleBill = () => {
@@ -383,7 +374,7 @@ export default function SessionPage() {
         });
     };
 
-    const handleAddItem = useCallback((itemToAdd: MenuItem) => {
+    const handleAddItem = (itemToAdd: MenuItem) => {
         if (!session) return;
 
         const newSession = { ...session };
@@ -396,7 +387,7 @@ export default function SessionPage() {
         }
         
         updateSessionInStorage(newSession);
-    }, [session, updateSessionInStorage]);
+    };
     
     const handleRemoveItem = useCallback((itemIdToRemove: string) => {
         setSession(currentSession => {
