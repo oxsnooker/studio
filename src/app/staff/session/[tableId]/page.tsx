@@ -9,7 +9,7 @@ import type { Table as TableType, MenuItem, ActiveSession } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Loader2, ArrowLeft, Plus, Minus, Receipt, Play, Pause } from 'lucide-react';
+import { Loader2, ArrowLeft, Plus, Minus, Receipt, Play, Pause, Wallet, Smartphone, Split, Award } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -21,13 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { cn } from '@/lib/utils';
 
 
 const formatDuration = (seconds: number) => {
@@ -49,6 +43,7 @@ export default function SessionPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [currentTime, setCurrentTime] = useState(new Date());
     const [isBillDialogOpen, setIsBillDialogOpen] = useState(false);
+    const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
 
     // Load table and menu data
     useEffect(() => {
@@ -173,10 +168,14 @@ export default function SessionPage() {
         setIsBillDialogOpen(true);
     };
     
-    const handleCompletePayment = (paymentMethod: string) => {
+    const handleCompletePayment = () => {
+        if (!selectedPaymentMethod) {
+            toast({ variant: "destructive", title: "Error", description: "Please select a payment method." });
+            return;
+        }
         if (!tableId) return;
         updateSessionInStorage(null);
-        toast({ title: 'Success', description: `Bill settled with ${paymentMethod}.` });
+        toast({ title: 'Success', description: `Bill settled with ${selectedPaymentMethod}.` });
         router.push('/staff');
     };
 
@@ -284,8 +283,13 @@ export default function SessionPage() {
                             </div>
                         </CardContent>
                         <CardFooter className="grid grid-cols-3 gap-2">
-                           <Button onClick={handleStart} disabled={sessionStatus !== 'idle'} className="bg-green-600 hover:bg-green-700">Start</Button>
-                           <Button onClick={handleResume} disabled={sessionStatus !== 'paused'} variant="outline">Resume</Button>
+                           <Button onClick={handleStart} disabled={sessionStatus !== 'idle'} className="bg-green-600 hover:bg-green-700">
+                               <Play className="mr-2 h-4 w-4" /> Start
+                           </Button>
+                           <Button onClick={sessionStatus === 'running' ? handlePause : handleResume} disabled={sessionStatus === 'idle' || sessionStatus === 'stopped'} variant="outline">
+                                {sessionStatus === 'running' ? <Pause className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
+                                {sessionStatus === 'running' ? 'Pause' : 'Resume'}
+                           </Button>
                            <Button onClick={handleStop} disabled={sessionStatus !== 'running' && sessionStatus !== 'paused'} variant="destructive">Stop</Button>
                         </CardFooter>
                     </Card>
@@ -393,38 +397,61 @@ export default function SessionPage() {
             <Dialog open={isBillDialogOpen} onOpenChange={setIsBillDialogOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Bill for {table.name}</DialogTitle>
-                        <DialogDescription>Select payment method to complete the transaction.</DialogDescription>
+                        <DialogTitle>Payment & Bill Settlement</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4 my-4">
-                        <Card className="p-4">
-                            <h4 className="font-semibold mb-2">Bill Summary</h4>
+                        <div className="bg-muted/50 rounded-lg p-4">
+                            <h4 className="font-semibold mb-3">{table.name} - Bill Summary</h4>
                             <div className="space-y-2 text-sm">
                                 <div className="flex justify-between"><span className="text-muted-foreground">Customer:</span><span>{session?.customerName}</span></div>
                                 <div className="flex justify-between"><span className="text-muted-foreground">Time Cost:</span><span>₹{tableCost.toFixed(2)}</span></div>
                                 <div className="flex justify-between"><span className="text-muted-foreground">Items Cost:</span><span>₹{itemsCost.toFixed(2)}</span></div>
                                 <Separator className="my-2"/>
-                                <div className="flex justify-between font-bold text-base"><span >Total:</span><span>₹{totalPayable.toFixed(2)}</span></div>
+                                <div className="flex justify-between font-bold text-lg"><span>Total Amount:</span><span>₹{totalPayable.toFixed(2)}</span></div>
                             </div>
-                        </Card>
+                        </div>
                         <div>
-                             <h4 className="font-semibold mb-2">Payment Method</h4>
-                             <Select onValueChange={(value) => handleCompletePayment(value)}>
-                                <SelectTrigger><SelectValue placeholder="Select payment method" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="Cash">Cash</SelectItem>
-                                    <SelectItem value="UPI">UPI</SelectItem>
-                                    <SelectItem value="Card">Card</SelectItem>
-                                    <SelectItem value="Membership">Membership</SelectItem>
-                                </SelectContent>
-                             </Select>
+                             <h4 className="font-semibold mb-3">Payment Method</h4>
+                             <div className="grid grid-cols-2 gap-2">
+                                <Button 
+                                    variant={selectedPaymentMethod === 'Cash' ? 'default' : 'outline'}
+                                    onClick={() => setSelectedPaymentMethod('Cash')}
+                                    className={cn("h-20 flex-col gap-2 text-base", selectedPaymentMethod === 'Cash' && 'bg-green-600 hover:bg-green-700')}
+                                >
+                                    <Wallet /> Cash
+                                </Button>
+                                <Button 
+                                    variant={selectedPaymentMethod === 'UPI' ? 'default' : 'outline'}
+                                    onClick={() => setSelectedPaymentMethod('UPI')}
+                                    className="h-20 flex-col gap-2 text-base"
+                                >
+                                    <Smartphone /> UPI
+                                </Button>
+                                <Button 
+                                    variant={selectedPaymentMethod === 'Split Pay' ? 'default' : 'outline'}
+                                    onClick={() => setSelectedPaymentMethod('Split Pay')}
+                                    className="h-20 flex-col gap-2 text-base"
+                                >
+                                    <Split /> Split Pay
+                                </Button>
+                                <Button 
+                                    variant={selectedPaymentMethod === 'Membership' ? 'default' : 'outline'}
+                                    onClick={() => setSelectedPaymentMethod('Membership')}
+                                    className="h-20 flex-col gap-2 text-base"
+                                >
+                                    <Award /> Membership
+                                </Button>
+                             </div>
                         </div>
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsBillDialogOpen(false)}>Cancel</Button>
+                        <Button className="bg-green-600 hover:bg-green-700" onClick={handleCompletePayment} disabled={!selectedPaymentMethod}>Settle Bill</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>
     );
 }
+
+    
