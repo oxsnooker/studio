@@ -2,6 +2,7 @@
 export interface Table {
   id: string;
   name: string;
+  category: string;
   rate: number; // per hour
 }
 

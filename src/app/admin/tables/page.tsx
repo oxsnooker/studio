@@ -18,7 +18,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { PlusCircle, Edit, Trash2, Loader2 } from "lucide-react";
+import { PlusCircle, Edit, Trash2, Loader2, Terminal } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -33,7 +33,7 @@ import { getTables, addTable, updateTable, deleteTable } from "./actions";
 import { useToast } from "@/hooks/use-toast";
 import type { Table as TableType } from "@/lib/types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Terminal } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 export default function TablesPage() {
   const [tables, setTables] = useState<TableType[]>([]);
@@ -148,7 +148,9 @@ export default function TablesPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Table Name</TableHead>
+                <TableHead>Category</TableHead>
                 <TableHead>Rate (per hour)</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -156,7 +158,9 @@ export default function TablesPage() {
               {tables.map((table) => (
                 <TableRow key={table.id}>
                   <TableCell className="font-medium">{table.name}</TableCell>
+                  <TableCell>{table.category}</TableCell>
                   <TableCell>₹{table.rate.toFixed(2)}</TableCell>
+                  <TableCell><Badge variant="secondary" className="bg-green-100 text-green-800">Available</Badge></TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="icon" onClick={() => openEditDialog(table)}>
                       <Edit className="h-4 w-4" />
@@ -184,7 +188,7 @@ export default function TablesPage() {
         <div>
           <CardTitle>Table Management</CardTitle>
           <CardDescription>
-            Add, edit, or delete tables and their hourly rates from the database.
+            Add, edit, or delete tables and their hourly rates.
           </CardDescription>
         </div>
         <Button onClick={openAddDialog}>
@@ -210,6 +214,12 @@ export default function TablesPage() {
                   Name
                 </Label>
                 <Input id="name" name="name" defaultValue={editingTable?.name || ""} className="col-span-3" required />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="category" className="text-right">
+                  Category
+                </Label>
+                <Input id="category" name="category" defaultValue={editingTable?.category || ""} className="col-span-3" required />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="rate" className="text-right">

@@ -9,6 +9,7 @@ import type { Table } from '@/lib/types';
 
 const tableSchema = z.object({
   name: z.string().min(1, 'Table name is required.'),
+  category: z.string().min(1, 'Category is required.'),
   rate: z.coerce.number().min(0, 'Rate must be a positive number.'),
 });
 
@@ -26,6 +27,7 @@ export async function getTables(): Promise<Table[]> {
 export async function addTable(formData: FormData) {
   const parsed = tableSchema.parse({
     name: formData.get('name'),
+    category: formData.get('category'),
     rate: formData.get('rate'),
   });
 
@@ -42,6 +44,7 @@ export async function updateTable(id: string, formData: FormData) {
 
     const parsed = tableSchema.parse({
         name: formData.get('name'),
+        category: formData.get('category'),
         rate: formData.get('rate'),
     });
     
