@@ -1,11 +1,8 @@
+
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
-import {
-  initialMenuItems,
-  type MenuItem,
-  type ActiveSession,
-} from "@/lib/data";
+import type { MenuItem, ActiveSession } from "@/lib/data";
 import type { Table as TableType } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -54,6 +51,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Image from "next/image";
 import { getTables } from "@/app/admin/tables/actions";
+import { getMenuItems } from "@/app/admin/menu/actions";
 
 const formatDuration = (seconds: number) => {
   const h = Math.floor(seconds / 3600);
@@ -64,6 +62,7 @@ const formatDuration = (seconds: number) => {
 
 export default function StaffDashboard() {
   const [tables, setTables] = useState<TableType[]>([]);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [sessions, setSessions] = useState<Record<string, ActiveSession>>({});
   const [activeModalTable, setActiveModalTable] = useState<TableType | null>(
@@ -75,14 +74,28 @@ export default function StaffDashboard() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const fetchTables = async () => {
+    const fetchData = async () => {
       setIsLoading(true);
-      const fetchedTables = await getTables();
-      setTables(fetchedTables);
-      setIsLoading(false);
+      try {
+        const [fetchedTables, fetchedMenuItems] = await Promise.all([
+            getTables(),
+            getMenuItems()
+        ]);
+        setTables(fetchedTables);
+        setMenuItems(fetchedMenuItems);
+      } catch (error) {
+        console.error("Failed to fetch initial data", error);
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Could not load tables and menu. Please check connection and Firestore setup.",
+        });
+      } finally {
+        setIsLoading(false);
+      }
     };
-    fetchTables();
-  }, []);
+    fetchData();
+  }, [toast]);
 
   // Timer update effect
   useEffect(() => {
@@ -91,13 +104,15 @@ export default function StaffDashboard() {
         const newSessions = { ...prev };
         let changed = false;
         Object.keys(newSessions).forEach((tableId) => {
-          const session = newSessions[tableId];
-          const elapsedSeconds = Math.floor(
-            (new Date().getTime() - session.startTime.getTime()) / 1000
-          );
-          if (session.elapsedSeconds !== elapsedSeconds) {
-            newSessions[tableId] = { ...session, elapsedSeconds };
-            changed = true;
+          if (newSessions[tableId]) {
+            const session = newSessions[tableId];
+            const elapsedSeconds = Math.floor(
+              (new Date().getTime() - session.startTime.getTime()) / 1000
+            );
+            if (session.elapsedSeconds !== elapsedSeconds) {
+              newSessions[tableId] = { ...session, elapsedSeconds };
+              changed = true;
+            }
           }
         });
         return changed ? newSessions : prev;
@@ -107,9 +122,10 @@ export default function StaffDashboard() {
   }, []);
 
   const handleStartSession = (table: TableType) => {
+    if (!table.id) return;
     setSessions((prev) => ({
       ...prev,
-      [table.id]: {
+      [table.id!]: {
         startTime: new Date(),
         elapsedSeconds: 0,
         items: [],
@@ -119,6 +135,7 @@ export default function StaffDashboard() {
   };
 
   const handleStopSession = (table: TableType) => {
+    if (!table.id) return;
     const session = sessions[table.id];
     if (!session) return;
     
@@ -146,7 +163,6 @@ export default function StaffDashboard() {
           title: "AI Error",
           description: "Could not generate detailed bill.",
         });
-        // Fallback to a simple bill
         setGeneratedBill(`Time: ${formatDuration(session.elapsedSeconds)}\nItems Cost: ₹${itemsCost.toFixed(2)}\nTotal: ₹${totalAmount.toFixed(2)}`);
       }
     });
@@ -156,8 +172,7 @@ export default function StaffDashboard() {
   };
 
   const handleCompletePayment = (paymentMethod: string) => {
-    if (!billData) return;
-    // In a real app, this would save the transaction to a database.
+    if (!billData || !billData.table.id) return;
     console.log(`Payment of ₹${(
         (billData.session.elapsedSeconds / 3600) * billData.table.rate +
         billData.session.items.reduce((acc, i) => acc + i.price * i.quantity, 0)
@@ -165,7 +180,7 @@ export default function StaffDashboard() {
 
     setSessions(prev => {
         const newSessions = {...prev};
-        delete newSessions[billData.table.id];
+        delete newSessions[billData.table.id!];
         return newSessions;
     });
 
@@ -178,6 +193,7 @@ export default function StaffDashboard() {
     setSessions((prev) => {
       const newSessions = { ...prev };
       const session = newSessions[tableId];
+      if (!session) return prev;
       const existingItem = session.items.find((i) => i.id === item.id);
       if (existingItem) {
         existingItem.quantity += 1;
@@ -192,6 +208,7 @@ export default function StaffDashboard() {
     setSessions((prev) => {
         const newSessions = { ...prev };
         const session = newSessions[tableId];
+        if (!session) return prev;
         const itemIndex = session.items.findIndex((i) => i.id === itemId);
         if (itemIndex > -1) {
             const item = session.items[itemIndex];
@@ -206,6 +223,7 @@ export default function StaffDashboard() {
   };
 
   const renderTableCard = (table: TableType) => {
+    if (!table.id) return null;
     const session = sessions[table.id];
     const isActive = !!session;
 
@@ -244,7 +262,8 @@ export default function StaffDashboard() {
     );
   };
 
-  const session = activeModalTable ? sessions[activeModalTable.id] : null;
+  const tableId = activeModalTable?.id;
+  const session = tableId ? sessions[tableId] : null;
   const tableCost = session ? (session.elapsedSeconds / 3600) * (activeModalTable?.rate || 0) : 0;
   const itemsCost = session ? session.items.reduce((acc, item) => acc + item.price * item.quantity, 0) : 0;
   const totalCost = tableCost + itemsCost;
@@ -253,6 +272,7 @@ export default function StaffDashboard() {
     return (
       <div className="flex justify-center items-center h-full">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <span className="ml-2">Loading Tables & Menu...</span>
       </div>
     );
   }
@@ -264,7 +284,7 @@ export default function StaffDashboard() {
       </div>
 
       {/* Session Management Modal */}
-      {activeModalTable && session && (
+      {activeModalTable && session && tableId && (
         <Dialog
           open={!!activeModalTable}
           onOpenChange={() => setActiveModalTable(null)}
@@ -279,21 +299,16 @@ export default function StaffDashboard() {
             <div className="grid md:grid-cols-2 gap-6 flex-1 min-h-0">
                 <div className="flex flex-col gap-4">
                     <h3 className="font-semibold">Add Items</h3>
-                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-                        {initialMenuItems.map(item => (
-                            <Button key={item.id} variant="outline" className="h-20 flex-col" onClick={() => handleAddItem(activeModalTable.id, item)}>
-                                <span>{item.name}</span>
-                                <span className="text-xs text-muted-foreground">₹{item.price}</span>
-                            </Button>
-                        ))}
-                    </div>
-                     <Separator />
-                    <h3 className="font-semibold">Quick Add</h3>
-                     <div className="flex gap-4">
-                         <Image src="https://picsum.photos/200/200" width={100} height={100} alt="Chips" className="rounded-md" data-ai-hint="chips bag" />
-                         <Image src="https://picsum.photos/200/200" width={100} height={100} alt="Drink" className="rounded-md" data-ai-hint="soda can" />
-                         <Image src="https://picsum.photos/200/200" width={100} height={100} alt="Water" className="rounded-md" data-ai-hint="water bottle" />
-                     </div>
+                    <ScrollArea className="h-full">
+                      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 pr-4">
+                          {menuItems.map(item => (
+                              <Button key={item.id} variant="outline" className="h-20 flex-col" onClick={() => handleAddItem(tableId, item)}>
+                                  <span>{item.name}</span>
+                                  <span className="text-xs text-muted-foreground">₹{item.price}</span>
+                              </Button>
+                          ))}
+                      </div>
+                    </ScrollArea>
                 </div>
                 <Card className="flex flex-col">
                     <CardHeader>
@@ -317,9 +332,9 @@ export default function StaffDashboard() {
                                             <TableCell>{item.name}</TableCell>
                                             <TableCell className="text-center">
                                                 <div className="flex items-center justify-center gap-2">
-                                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleRemoveItem(activeModalTable.id, item.id)}><Minus className="h-3 w-3"/></Button>
+                                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleRemoveItem(tableId, item.id)}><Minus className="h-3 w-3"/></Button>
                                                     {item.quantity}
-                                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleAddItem(activeModalTable.id, item)}><Plus className="h-3 w-3"/></Button>
+                                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleAddItem(tableId, item)}><Plus className="h-3 w-3"/></Button>
                                                 </div>
                                             </TableCell>
                                             <TableCell className="text-right">₹{(item.price * item.quantity).toFixed(2)}</TableCell>

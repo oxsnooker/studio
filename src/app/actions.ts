@@ -1,7 +1,10 @@
+
 "use server";
 
 import { z } from "zod";
-import { admins, initialStaff } from "@/lib/data";
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import type { Admin, Staff } from '@/lib/types';
 
 const loginSchema = z.object({
   username: z.string(),
@@ -18,23 +21,32 @@ export async function login(
     const { username, password, role } = loginSchema.parse(input);
 
     if (role === "admin") {
-      const admin = admins.find(
-        (a) => a.username === username && a.password === password
-      );
-      if (admin) {
+      const q = query(collection(db, "admins"), where("username", "==", username));
+      const querySnapshot = await getDocs(q);
+      if (querySnapshot.empty) {
+        return { success: false, message: "Invalid username or password", redirect: "" };
+      }
+      const admin = querySnapshot.docs[0].data() as Admin;
+      // In a real app, passwords should be hashed. This is a simple comparison for demonstration.
+      if (admin.password === password) {
         return { success: true, message: "Admin login successful", redirect: "/admin" };
       }
     } else if (role === "staff") {
-      const staff = initialStaff.find(
-        (s) => s.username === username && s.password === password
-      );
-      if (staff) {
+      const q = query(collection(db, "staff"), where("username", "==", username));
+       const querySnapshot = await getDocs(q);
+       if (querySnapshot.empty) {
+        return { success: false, message: "Invalid username or password", redirect: "" };
+      }
+      const staff = querySnapshot.docs[0].data() as Staff;
+      // In a real app, passwords should be hashed.
+       if (staff.password === password) {
         return { success: true, message: "Staff login successful", redirect: "/staff" };
       }
     }
 
     return { success: false, message: "Invalid username or password", redirect: "" };
   } catch (error) {
-    return { success: false, message: "Invalid input", redirect: "" };
+    console.error("Login Error:", error);
+    return { success: false, message: "An unexpected error occurred during login.", redirect: "" };
   }
 }
