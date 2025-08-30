@@ -208,39 +208,42 @@ export default function SessionPage() {
         router.push('/staff');
     };
 
-    const handleAddItem = (item: MenuItem) => {
-        setSession(prev => {
-            if(!prev) return prev;
-            
-            const currentSession = prev;
-
-            const existingItem = currentSession.items.find(i => i.id === item.id);
-            let newItems;
-            if (existingItem) {
-                newItems = currentSession.items.map(i => i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i);
-            } else {
-                newItems = [...currentSession.items, { ...item, quantity: 1 }];
-            }
-            const newSession = { ...currentSession, items: newItems };
-            updateSessionInStorage(newSession);
-            return newSession;
-        });
+    const handleAddItem = (itemToAdd: MenuItem) => {
+      setSession(prevSession => {
+        if (!prevSession) return null;
+    
+        const existingItem = prevSession.items.find(i => i.id === itemToAdd.id);
+        
+        let newItems;
+        if (existingItem) {
+          newItems = prevSession.items.map(i => 
+            i.id === itemToAdd.id ? { ...i, quantity: i.quantity + 1 } : i
+          );
+        } else {
+          newItems = [...prevSession.items, { ...itemToAdd, quantity: 1 }];
+        }
+        
+        const newSession = { ...prevSession, items: newItems };
+        updateSessionInStorage(newSession);
+        return newSession;
+      });
     };
     
-    const handleRemoveItem = (itemId: string) => {
-        setSession(prev => {
-            if (!prev) return prev;
-            const existingItem = prev.items.find(i => i.id === itemId);
-            let newItems;
-            if (existingItem && existingItem.quantity > 1) {
-                newItems = prev.items.map(i => i.id === itemId ? { ...i, quantity: i.quantity - 1 } : i);
-            } else {
-                newItems = prev.items.filter(i => i.id !== itemId);
-            }
-            const newSession = { ...prev, items: newItems };
-            updateSessionInStorage(newSession);
-            return newSession;
-        });
+    const handleRemoveItem = (itemIdToRemove: string) => {
+      setSession(prevSession => {
+        if (!prevSession) return null;
+    
+        const newItems = prevSession.items.map(item => {
+          if (item.id === itemIdToRemove) {
+            return { ...item, quantity: item.quantity - 1 };
+          }
+          return item;
+        }).filter(item => item.quantity > 0);
+    
+        const newSession = { ...prevSession, items: newItems };
+        updateSessionInStorage(newSession);
+        return newSession;
+      });
     };
     
     const isSplitPayMismatch = useMemo(() => {
@@ -390,7 +393,7 @@ export default function SessionPage() {
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Items Total:</span>
                                     <span>₹{itemsCost.toFixed(2)}</span>
-                                </div>
+                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Customer:</span>
                                     <span>{session?.customerName || 'Walk-in Customer'}</span>
@@ -506,3 +509,5 @@ export default function SessionPage() {
         </div>
     );
 }
+
+    
