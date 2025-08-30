@@ -22,6 +22,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from '@/lib/utils';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 
 
 const formatDuration = (seconds: number) => {
@@ -44,6 +46,8 @@ export default function SessionPage() {
     const [currentTime, setCurrentTime] = useState(new Date());
     const [isBillDialogOpen, setIsBillDialogOpen] = useState(false);
     const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
+    const [cashAmount, setCashAmount] = useState('');
+    const [upiAmount, setUpiAmount] = useState('');
 
     // Load table and menu data
     useEffect(() => {
@@ -168,11 +172,33 @@ export default function SessionPage() {
         setIsBillDialogOpen(true);
     };
     
+    const tableCost = useMemo(() => {
+        if (!session || !table) return 0;
+        return (session.elapsedSeconds / 3600) * table.rate;
+    }, [session, table]);
+
+    const itemsCost = useMemo(() => {
+        if (!session) return 0;
+        return session.items.reduce((acc, item) => acc + item.price * item.quantity, 0);
+    }, [session]);
+
+    const totalPayable = tableCost + itemsCost;
+
     const handleCompletePayment = () => {
         if (!selectedPaymentMethod) {
             toast({ variant: "destructive", title: "Error", description: "Please select a payment method." });
             return;
         }
+
+        if (selectedPaymentMethod === 'Split Pay') {
+            const parsedCash = parseFloat(cashAmount) || 0;
+            const parsedUpi = parseFloat(upiAmount) || 0;
+            if ((parsedCash + parsedUpi).toFixed(2) !== totalPayable.toFixed(2)) {
+                toast({ variant: "destructive", title: "Error", description: `Split payment amounts (₹${(parsedCash + parsedUpi).toFixed(2)}) must add up to the total payable (₹${totalPayable.toFixed(2)}).` });
+                return;
+            }
+        }
+
         if (!tableId) return;
         updateSessionInStorage(null);
         toast({ title: 'Success', description: `Bill settled with ${selectedPaymentMethod}.` });
@@ -214,17 +240,6 @@ export default function SessionPage() {
         });
     };
     
-    const tableCost = useMemo(() => {
-        if (!session || !table) return 0;
-        return (session.elapsedSeconds / 3600) * table.rate;
-    }, [session, table]);
-
-    const itemsCost = useMemo(() => {
-        if (!session) return 0;
-        return session.items.reduce((acc, item) => acc + item.price * item.quantity, 0);
-    }, [session]);
-
-    const totalPayable = tableCost + itemsCost;
 
     if (isLoading) {
         return (
@@ -257,7 +272,7 @@ export default function SessionPage() {
                                 <CardTitle className="text-lg">{table.name}</CardTitle>
                                 <p className="text-sm text-muted-foreground">{table.category} Table</p>
                             </div>
-                            {session && <Badge className={session.status === 'running' ? 'bg-green-500' : 'bg-yellow-500'}>{session.status.charAt(0).toUpperCase() + session.status.slice(1)}</Badge>}
+                            {session && <Badge className={session.status === 'running' ? 'bg-green-500' : session.status === 'paused' ? 'bg-yellow-500' : 'bg-red-500'}>{session.status.charAt(0).toUpperCase() + session.status.slice(1)}</Badge>}
                         </CardHeader>
                         <CardContent>
                             <div className="grid grid-cols-2 gap-4 text-sm mt-4">
@@ -374,7 +389,7 @@ export default function SessionPage() {
                                  <div className="flex justify-between">
                                     <span className="text-muted-foreground">Status:</span>
                                     <span className="font-medium text-primary">{session ? (session.status.charAt(0).toUpperCase() + session.status.slice(1)) : 'Not Started'}</span>
-                                </div>
+                                 </div>
                             </div>
                         </CardContent>
                         <CardFooter className="flex-col items-stretch space-y-2">
@@ -442,6 +457,30 @@ export default function SessionPage() {
                                     <Award /> Membership
                                 </Button>
                              </div>
+                             {selectedPaymentMethod === 'Split Pay' && (
+                                <div className="grid grid-cols-2 gap-4 mt-4 p-4 border rounded-md">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="cashAmount">Cash Amount</Label>
+                                        <Input
+                                            id="cashAmount"
+                                            type="number"
+                                            placeholder="0.00"
+                                            value={cashAmount}
+                                            onChange={(e) => setCashAmount(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="upiAmount">UPI Amount</Label>
+                                        <Input
+                                            id="upiAmount"
+                                            type="number"
+                                            placeholder="0.00"
+                                            value={upiAmount}
+                                            onChange={(e) => setUpiAmount(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                             )}
                         </div>
                     </div>
                     <DialogFooter>
@@ -453,5 +492,3 @@ export default function SessionPage() {
         </div>
     );
 }
-
-    
