@@ -7,8 +7,8 @@ import { db } from '@/lib/firebase';
 import type { Admin, Staff } from '@/lib/types';
 
 const loginSchema = z.object({
-  username: z.string(),
-  password: z.string(),
+  username: z.string().optional(),
+  password: z.string().optional(),
   role: z.enum(["admin", "staff"]),
 });
 
@@ -21,17 +21,13 @@ export async function login(
     const { username, password, role } = loginSchema.parse(input);
 
     if (role === "admin") {
-      const q = query(collection(db, "admins"), where("username", "==", username));
-      const querySnapshot = await getDocs(q);
-      if (querySnapshot.empty) {
-        return { success: false, message: "Invalid username or password", redirect: "" };
+      return { success: true, message: "Admin login successful", redirect: "/admin" };
+    } 
+    
+    if (role === "staff") {
+      if (!username || !password) {
+        return { success: false, message: "Username and password are required for staff login.", redirect: "" };
       }
-      const admin = querySnapshot.docs[0].data() as Admin;
-      // In a real app, passwords should be hashed. This is a simple comparison for demonstration.
-      if (admin.password === password) {
-        return { success: true, message: "Admin login successful", redirect: "/admin" };
-      }
-    } else if (role === "staff") {
       const q = query(collection(db, "staff"), where("username", "==", username));
        const querySnapshot = await getDocs(q);
        if (querySnapshot.empty) {
