@@ -4,7 +4,7 @@
 import { useState, useEffect, useMemo, useCallback, useTransition } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { getTableById, getMenuItems, saveTransaction } from '@/app/staff/actions';
+import { getTableById, getMenuItems } from '@/app/staff/actions';
 import type { Table as TableType, MenuItem, ActiveSession, Transaction } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -203,69 +203,52 @@ export default function SessionPage() {
             }
         }
         
-        startTransition(async () => {
-            const transaction: Transaction = {
-                tableId: table.id,
-                tableName: table.name,
-                startTime: new Date(session.startTime).getTime(),
-                endTime: new Date().getTime(),
-                durationSeconds: session.elapsedSeconds,
-                tableCost: parseFloat(tableCost.toFixed(2)),
-                itemsCost: parseFloat(itemsCost.toFixed(2)),
-                totalAmount: totalPayable,
-                paymentMethod: selectedPaymentMethod,
-                items: session.items,
-                customerName: session.customerName,
-                createdAt: Date.now(),
-            };
-
-            const result = await saveTransaction(transaction);
-
-            if (result.success) {
-                updateSessionInStorage(null);
-                toast({ title: 'Success', description: `Bill settled with ${selectedPaymentMethod}.` });
-                router.push('/staff');
-            } else {
-                toast({ variant: 'destructive', title: 'Save Error', description: result.message });
-            }
+        startTransition(() => {
+            // Transaction logic removed.
+            updateSessionInStorage(null);
+            toast({ title: 'Success', description: `Bill settled with ${selectedPaymentMethod}.` });
+            router.push('/staff');
         });
     };
 
     const handleAddItem = useCallback((itemToAdd: MenuItem) => {
-      setSession(currentSession => {
+        setSession(currentSession => {
           if (!currentSession) return null;
-  
-          let itemFound = false;
-          const newItems = currentSession.items.map(item => {
-              if (item.id === itemToAdd.id) {
-                  itemFound = true;
-                  return { ...item, quantity: item.quantity + 1 };
-              }
-              return item;
-          });
-  
-          if (!itemFound) {
-              newItems.push({ ...itemToAdd, quantity: 1 });
+          
+          const newItems = [...currentSession.items];
+          const existingItemIndex = newItems.findIndex(item => item.id === itemToAdd.id);
+
+          if (existingItemIndex > -1) {
+            newItems[existingItemIndex] = {
+              ...newItems[existingItemIndex],
+              quantity: newItems[existingItemIndex].quantity + 1,
+            };
+          } else {
+            newItems.push({ ...itemToAdd, quantity: 1 });
           }
-  
+
           const newSession = { ...currentSession, items: newItems };
           updateSessionInStorage(newSession);
           return newSession;
-      });
+        });
     }, [tableId]);
     
     const handleRemoveItem = useCallback((itemIdToRemove: string) => {
         setSession(currentSession => {
             if (!currentSession) return null;
     
-            const newItems = currentSession.items
-                .map(item => {
-                    if (item.id === itemIdToRemove) {
-                        return { ...item, quantity: item.quantity - 1 };
-                    }
-                    return item;
-                })
-                .filter(item => item.quantity > 0);
+            let newItems;
+            const itemToUpdate = currentSession.items.find(item => item.id === itemIdToRemove);
+
+            if (itemToUpdate && itemToUpdate.quantity > 1) {
+                newItems = currentSession.items.map(item =>
+                    item.id === itemIdToRemove
+                        ? { ...item, quantity: item.quantity - 1 }
+                        : item
+                );
+            } else {
+                newItems = currentSession.items.filter(item => item.id !== itemIdToRemove);
+            }
     
             const newSession = { ...currentSession, items: newItems };
             updateSessionInStorage(newSession);
