@@ -23,6 +23,14 @@ const memberSchema = z.object({
   validityDate: z.coerce.date().optional(),
 });
 
+const memberUpdateSchema = z.object({
+    name: z.string().min(1, 'Customer name is required.'),
+    planId: z.string().min(1, 'A membership plan must be selected.'),
+    mobileNumber: z.string().optional(),
+    validityDate: z.coerce.date().optional(),
+    remainingHours: z.coerce.number().min(0, 'Remaining hours must be a positive number.'),
+});
+
 
 // Actions for Membership Plans
 export async function getMembershipPlans(): Promise<MembershipPlan[]> {
@@ -87,4 +95,31 @@ export async function addMember(formData: FormData) {
   await addDoc(collection(db, 'members'), data);
   revalidatePath('/admin/memberships');
   return { success: true, message: 'New member added.' };
+}
+
+export async function updateMember(id: string, formData: FormData) {
+    if (!id) {
+        return { success: false, message: 'Invalid member ID.' };
+    }
+
+    const parsed = memberUpdateSchema.parse({
+        name: formData.get('name'),
+        planId: formData.get('planId'),
+        mobileNumber: formData.get('mobileNumber'),
+        validityDate: formData.get('validityDate') ? new Date(formData.get('validityDate') as string) : undefined,
+        remainingHours: formData.get('remainingHours'),
+    });
+
+    const data = {
+        name: parsed.name,
+        planId: parsed.planId,
+        mobileNumber: parsed.mobileNumber,
+        remainingHours: parsed.remainingHours,
+        validityDate: parsed.validityDate ? parsed.validityDate.getTime() : undefined,
+    };
+
+    const memberRef = doc(db, 'members', id);
+    await updateDoc(memberRef, data);
+    revalidatePath('/admin/memberships');
+    return { success: true, message: 'Member details updated.' };
 }

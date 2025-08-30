@@ -24,11 +24,12 @@ import {
   getMembers,
   addMembershipPlan,
   addMember,
+  updateMember,
 } from "./actions";
 import type { MembershipPlan, Member } from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { Loader2, PlusCircle, Terminal, Crown, Calendar as CalendarIcon } from "lucide-react";
+import { Loader2, PlusCircle, Terminal, Crown, Calendar as CalendarIcon, Edit } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -148,6 +149,7 @@ export default function MembershipsPage() {
 
   const [isAddingPlan, setIsAddingPlan] = useState(false);
   const [isMemberDialogOpen, setIsMemberDialogOpen] = useState(false);
+  const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [validityDate, setValidityDate] = useState<Date | undefined>();
 
   const fetchData = async () => {
@@ -171,6 +173,14 @@ export default function MembershipsPage() {
   useEffect(() => {
     fetchData();
   }, []);
+  
+  useEffect(() => {
+    if(editingMember && editingMember.validityDate) {
+        setValidityDate(new Date(editingMember.validityDate))
+    } else {
+        setValidityDate(undefined);
+    }
+  }, [editingMember]);
 
   const handleMemberFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -178,19 +188,20 @@ export default function MembershipsPage() {
     if (validityDate) {
         formData.set('validityDate', validityDate.toISOString());
     }
+    
     startTransition(async () => {
       try {
-        const result = await addMember(formData);
+        const action = editingMember ? updateMember.bind(null, editingMember.id!) : addMember;
+        const result = await action(formData);
         if (result.success) {
           toast({ title: "Success", description: result.message });
           await fetchData();
-          setIsMemberDialogOpen(false);
-          setValidityDate(undefined);
+          closeMemberDialog();
         } else {
           toast({ variant: "destructive", title: "Error", description: result.message });
         }
       } catch (err) {
-        toast({ variant: "destructive", title: "Error", description: "Failed to add member." });
+        toast({ variant: "destructive", title: "Error", description: "Failed to save member data." });
       }
     });
   };
@@ -213,6 +224,22 @@ export default function MembershipsPage() {
       );
     }
     return null;
+  }
+  
+  const openAddMemberDialog = () => {
+      setEditingMember(null);
+      setIsMemberDialogOpen(true);
+  }
+  
+  const openEditMemberDialog = (member: Member) => {
+      setEditingMember(member);
+      setIsMemberDialogOpen(true);
+  }
+  
+  const closeMemberDialog = () => {
+      setEditingMember(null);
+      setIsMemberDialogOpen(false);
+      setValidityDate(undefined);
   }
 
   return (
@@ -275,7 +302,7 @@ export default function MembershipsPage() {
                   View and track active customer memberships.
                 </CardDescription>
               </div>
-               <Button variant="outline" onClick={() => setIsMemberDialogOpen(true)}>
+               <Button variant="outline" onClick={openAddMemberDialog}>
                   <PlusCircle className="mr-2 h-4 w-4" /> Add Customer
               </Button>
             </div>
@@ -291,6 +318,7 @@ export default function MembershipsPage() {
                     <TableHead>Validity Date</TableHead>
                     <TableHead>Remaining Hours</TableHead>
                     <TableHead className="w-[200px]">Usage</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -311,6 +339,11 @@ export default function MembershipsPage() {
                         <TableCell>
                           <Progress value={usagePercentage} className="w-full" />
                         </TableCell>
+                         <TableCell className="text-right">
+                          <Button variant="ghost" size="icon" onClick={() => openEditMemberDialog(member)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
@@ -322,28 +355,28 @@ export default function MembershipsPage() {
       </TabsContent>
     </Tabs>
 
-      {/* Add Member Dialog */}
-      <Dialog open={isMemberDialogOpen} onOpenChange={setIsMemberDialogOpen}>
+      {/* Add/Edit Member Dialog */}
+      <Dialog open={isMemberDialogOpen} onOpenChange={closeMemberDialog}>
         <DialogContent>
           <form onSubmit={handleMemberFormSubmit}>
             <DialogHeader>
-              <DialogTitle>Add New Member</DialogTitle>
+              <DialogTitle>{editingMember ? "Edit Member" : "Add New Member"}</DialogTitle>
               <DialogDescription>
-                Enter the customer's details and select a membership plan.
+                {editingMember ? "Update the customer's details." : "Enter the customer's details and select a membership plan."}
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Customer Name</Label>
-                <Input id="name" name="name" required />
+                <Input id="name" name="name" defaultValue={editingMember?.name} required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="mobileNumber">Mobile Number</Label>
-                <Input id="mobileNumber" name="mobileNumber" />
+                <Input id="mobileNumber" name="mobileNumber" defaultValue={editingMember?.mobileNumber} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="planId">Membership Plan</Label>
-                <Select name="planId" required>
+                <Select name="planId" defaultValue={editingMember?.planId} required>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a plan" />
                   </SelectTrigger>
@@ -354,6 +387,12 @@ export default function MembershipsPage() {
                   </SelectContent>
                 </Select>
               </div>
+              {editingMember && (
+                <div className="space-y-2">
+                    <Label htmlFor="remainingHours">Remaining Hours</Label>
+                    <Input id="remainingHours" name="remainingHours" type="number" defaultValue={editingMember?.remainingHours} required />
+                </div>
+              )}
                <div className="space-y-2">
                     <Label htmlFor="validityDate">Validity Date</Label>
                     <Popover>
@@ -381,10 +420,10 @@ export default function MembershipsPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => {setIsMemberDialogOpen(false); setValidityDate(undefined)}}>Cancel</Button>
+              <Button type="button" variant="outline" onClick={closeMemberDialog}>Cancel</Button>
               <Button type="submit" disabled={isPending || plans.length === 0}>
                 {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Add Member
+                {editingMember ? "Save Changes" : "Add Member"}
               </Button>
             </DialogFooter>
           </form>
