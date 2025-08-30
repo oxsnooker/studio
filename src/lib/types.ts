@@ -40,6 +40,7 @@ export interface Staff {
 export interface MembershipPlan {
   id: string;
   name: string;
+  description?: string;
   price: number;
   totalHours: number;
 }

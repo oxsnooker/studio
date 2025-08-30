@@ -28,7 +28,7 @@ import {
 } from "./actions";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { Loader2, PlusCircle, Terminal } from "lucide-react";
+import { Loader2, PlusCircle, Terminal, Crown } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -42,6 +42,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 
 export default function MembershipsPage() {
@@ -115,10 +116,10 @@ export default function MembershipsPage() {
     });
   };
 
-  const renderContent = (content: React.ReactNode) => {
+  const renderLoadingError = () => {
     if (isLoading) {
       return (
-        <div className="flex justify-center items-center h-48">
+        <div className="flex justify-center items-center h-64">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       );
@@ -132,32 +133,69 @@ export default function MembershipsPage() {
         </Alert>
       );
     }
-    return content;
-  };
+    return null;
+  }
 
   return (
     <>
-    <Tabs defaultValue="customers">
-      <div className="flex items-center justify-between">
-        <TabsList>
-          <TabsTrigger value="customers">Customer Memberships</TabsTrigger>
-          <TabsTrigger value="plans">Membership Plans</TabsTrigger>
-        </TabsList>
-         <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setIsMemberDialogOpen(true)}><PlusCircle className="mr-2 h-4 w-4" /> Add Member</Button>
-            <Button onClick={() => setIsPlanDialogOpen(true)}><PlusCircle className="mr-2 h-4 w-4" /> Add Plan</Button>
+    <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold tracking-tight">Membership Management</h2>
+        <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setIsMemberDialogOpen(true)}>
+                <PlusCircle className="mr-2 h-4 w-4" /> Add Customer
+            </Button>
+            <Button onClick={() => setIsPlanDialogOpen(true)}>
+                <PlusCircle className="mr-2 h-4 w-4" /> Add New Plan
+            </Button>
         </div>
-      </div>
+    </div>
+    <Tabs defaultValue="plans">
+      <TabsList>
+          <TabsTrigger value="plans">Plans</TabsTrigger>
+          <TabsTrigger value="customers">Customers</TabsTrigger>
+      </TabsList>
+      <TabsContent value="plans" className="mt-4">
+        {renderLoadingError() || (
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {plans.map((plan) => (
+                     <Card key={plan.id} className="flex flex-col">
+                        <CardHeader>
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <CardTitle className="text-2xl">{plan.name}</CardTitle>
+                                    <CardDescription>{plan.description}</CardDescription>
+                                </div>
+                                <div className="p-3 bg-muted rounded-full">
+                                    <Crown className="h-6 w-6 text-muted-foreground" />
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="flex-1" />
+                        <CardFooter className="flex justify-between items-end">
+                            <div>
+                                <p className="text-sm text-muted-foreground">Price</p>
+                                <p className="text-3xl font-bold">₹{plan.price.toLocaleString()}</p>
+                            </div>
+                             <div>
+                                <p className="text-sm text-muted-foreground">Hours</p>
+                                <p className="text-3xl font-bold">{plan.totalHours} hrs</p>
+                            </div>
+                        </CardFooter>
+                    </Card>
+                ))}
+            </div>
+        )}
+      </TabsContent>
       <TabsContent value="customers" className="mt-4">
         <Card>
           <CardHeader>
             <CardTitle>Customer Memberships</CardTitle>
             <CardDescription>
-              View and track active customer memberships from the database.
+              View and track active customer memberships.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {renderContent(
+             {renderLoadingError() || (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -176,46 +214,14 @@ export default function MembershipsPage() {
                     return (
                       <TableRow key={member.id}>
                         <TableCell className="font-medium">{member.name}</TableCell>
-                        <TableCell>{plan.name}</TableCell>
-                        <TableCell>{member.remainingHours.toFixed(1)} / {plan.totalHours} hrs</TableCell>
+                        <TableCell>{plan?.name || 'Unknown Plan'}</TableCell>
+                        <TableCell>{member.remainingHours.toFixed(1)} / {plan?.totalHours || '?'} hrs</TableCell>
                         <TableCell>
                           <Progress value={usagePercentage} className="w-full" />
                         </TableCell>
                       </TableRow>
                     );
                   })}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-      </TabsContent>
-      <TabsContent value="plans" className="mt-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Membership Plans</CardTitle>
-            <CardDescription>
-              Define hourly-based membership plans in the database.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {renderContent(
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Plan Name</TableHead>
-                    <TableHead>Price</TableHead>
-                    <TableHead>Total Included Hours</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {plans.map((plan) => (
-                    <TableRow key={plan.id}>
-                      <TableCell className="font-medium">{plan.name}</TableCell>
-                      <TableCell>₹{plan.price.toLocaleString()}</TableCell>
-                      <TableCell>{plan.totalHours} hours</TableCell>
-                    </TableRow>
-                  ))}
                 </TableBody>
               </Table>
             )}
@@ -237,6 +243,8 @@ export default function MembershipsPage() {
             <div className="grid gap-4 py-4">
               <Label htmlFor="name">Plan Name</Label>
               <Input id="name" name="name" required />
+               <Label htmlFor="description">Description</Label>
+              <Textarea id="description" name="description" placeholder="e.g., Perfect for casual players" />
               <Label htmlFor="price">Price (₹)</Label>
               <Input id="price" name="price" type="number" required />
               <Label htmlFor="totalHours">Total Hours</Label>

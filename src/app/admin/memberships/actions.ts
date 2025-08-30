@@ -10,6 +10,7 @@ import type { MembershipPlan, Member } from '@/lib/types';
 // Schemas for validation
 const planSchema = z.object({
   name: z.string().min(1, 'Plan name is required.'),
+  description: z.string().optional(),
   price: z.coerce.number().min(0, 'Price must be a positive number.'),
   totalHours: z.coerce.number().min(1, 'Total hours must be at least 1.'),
 });
@@ -34,6 +35,7 @@ export async function getMembershipPlans(): Promise<MembershipPlan[]> {
 export async function addMembershipPlan(formData: FormData) {
   const parsed = planSchema.parse({
     name: formData.get('name'),
+    description: formData.get('description'),
     price: formData.get('price'),
     totalHours: formData.get('totalHours'),
   });
