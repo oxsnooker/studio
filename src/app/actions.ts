@@ -4,7 +4,7 @@
 import { z } from "zod";
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Admin, Staff } from '@/lib/types';
+import type { Staff } from '@/lib/types';
 
 
 const loginSchema = z.object({
@@ -38,11 +38,13 @@ export async function login(
        if (querySnapshot.empty) {
         return { success: false, message: "Invalid username or password" };
       }
-      const staff = querySnapshot.docs[0].data() as Staff;
+      const staffDoc = querySnapshot.docs[0];
+      const staff = staffDoc.data() as Staff;
+      
       // In a real app, passwords should be hashed.
        if (staff.password === password) {
          return { success: true, message: "Staff login successful.", role: "staff" };
-      }
+       }
     }
 
     return { success: false, message: "Invalid username or password" };
@@ -50,10 +52,4 @@ export async function login(
     console.error("Login Error:", error);
     return { success: false, message: "An unexpected error occurred during login." };
   }
-}
-
-export async function logout() {
-    // This would typically handle session clearing.
-    // For now, we'll just simulate a logout for client-side redirection.
-    return { success: true, message: "Logged out." };
 }
