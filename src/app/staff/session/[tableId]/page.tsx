@@ -116,6 +116,7 @@ export default function SessionPage() {
     };
     
     const handleStart = () => {
+        if (session) return;
         const newSession: ActiveSession = {
             startTime: new Date(),
             elapsedSeconds: 0,
@@ -208,52 +209,38 @@ export default function SessionPage() {
         router.push('/staff');
     };
 
-    const handleAddItem = (itemToAdd: MenuItem) => {
-      setSession(prevSession => {
-        if (!prevSession) return null;
-    
-        const existingItem = prevSession.items.find(i => i.id === itemToAdd.id);
+    const handleAddItem = useCallback((itemToAdd: MenuItem) => {
+        if (!session) return;
         
-        let newItems;
+        const newSession = {...session};
+        const existingItem = newSession.items.find(i => i.id === itemToAdd.id);
+        
         if (existingItem) {
-          newItems = prevSession.items.map(i => 
-            i.id === itemToAdd.id ? { ...i, quantity: i.quantity + 1 } : i
-          );
+          existingItem.quantity += 1;
         } else {
-          newItems = [...prevSession.items, { ...itemToAdd, quantity: 1 }];
+          newSession.items.push({ ...itemToAdd, quantity: 1 });
         }
         
-        const newSession = { ...prevSession, items: newItems };
         updateSessionInStorage(newSession);
-        return newSession;
-      });
-    };
+    }, [session, tableId]);
     
-    const handleRemoveItem = (itemIdToRemove: string) => {
-        setSession(prevSession => {
-            if (!prevSession) return null;
+    const handleRemoveItem = useCallback((itemIdToRemove: string) => {
+        if (!session) return;
 
-            const existingItem = prevSession.items.find(i => i.id === itemIdToRemove);
-            if (!existingItem) return prevSession;
+        const newSession = {...session};
+        const itemIndex = newSession.items.findIndex(i => i.id === itemIdToRemove);
+        if (itemIndex === -1) return;
 
-            let newItems;
-            if (existingItem.quantity > 1) {
-                // Decrement quantity
-                newItems = prevSession.items.map(item =>
-                    item.id === itemIdToRemove
-                        ? { ...item, quantity: item.quantity - 1 }
-                        : item
-                );
-            } else {
-                // Remove item if quantity is 1
-                newItems = prevSession.items.filter(item => item.id !== itemIdToRemove);
-            }
+        const item = newSession.items[itemIndex];
+        
+        if (item.quantity > 1) {
+            item.quantity -= 1;
+        } else {
+            newSession.items.splice(itemIndex, 1);
+        }
 
-            const newSession = { ...prevSession, items: newItems };
-            updateSessionInStorage(newSession);
-            return newSession;
-        });
-    };
+        updateSessionInStorage(newSession);
+    }, [session, tableId]);
     
     const isSplitPayMismatch = useMemo(() => {
         if (selectedPaymentMethod !== 'Split Pay') return false;
@@ -282,7 +269,6 @@ export default function SessionPage() {
                 <ArrowLeft className="h-4 w-4" />
                 Back to Tables
             </Link>
-            <h1 className="text-3xl font-bold mb-6">{table.name}</h1>
             
             <div className="grid lg:grid-cols-3 gap-6">
                 {/* Left Column */}
@@ -296,7 +282,8 @@ export default function SessionPage() {
                             {session && <Badge className={session.status === 'running' ? 'bg-green-500' : session.status === 'paused' ? 'bg-yellow-500' : 'bg-red-500'}>{session.status.charAt(0).toUpperCase() + session.status.slice(1)}</Badge>}
                         </CardHeader>
                         <CardContent>
-                            <div className="grid grid-cols-2 gap-4 text-sm mt-4">
+                           {session ? (
+                             <div className="grid grid-cols-2 gap-4 text-sm mt-4">
                                 <div>
                                     <p className="text-muted-foreground">Timer</p>
                                     <p className="text-2xl font-mono font-bold">{formatDuration(session?.elapsedSeconds || 0)}</p>
@@ -311,23 +298,33 @@ export default function SessionPage() {
                                 </div>
                                 <div>
                                     <p className="text-muted-foreground">Started At:</p>
-                                    <p>{session ? new Date(session.startTime).toLocaleTimeString() : 'Not started'}</p>
+                                    <p>{new Date(session.startTime).toLocaleTimeString()}</p>
                                 </div>
                                  <div className="col-span-2 text-right text-xs text-muted-foreground">
                                     Current Time: {currentTime.toLocaleTimeString()}
                                  </div>
                             </div>
+                           ) : (
+                             <div className="text-center py-10">
+                                 <p className="text-muted-foreground">This table is available.</p>
+                             </div>
+                           )}
                         </CardContent>
-                        <CardFooter className="grid grid-cols-3 gap-2">
-                           <Button onClick={handleStart} disabled={sessionStatus !== 'idle'} className="bg-green-600 hover:bg-green-700">
-                               <Play className="mr-2 h-4 w-4" /> Start
-                           </Button>
-                           <Button onClick={sessionStatus === 'running' ? handlePause : handleResume} disabled={sessionStatus === 'idle' || sessionStatus === 'stopped'} variant="outline">
-                                {sessionStatus === 'running' ? <Pause className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
-                                {sessionStatus === 'running' ? 'Pause' : 'Resume'}
-                           </Button>
-                           <Button onClick={handleStop} disabled={sessionStatus !== 'running' && sessionStatus !== 'paused'} variant="destructive">Stop</Button>
-                        </CardFooter>
+                         {session ? (
+                             <CardFooter className="grid grid-cols-3 gap-2">
+                               <Button onClick={sessionStatus === 'running' ? handlePause : handleResume} disabled={sessionStatus === 'idle' || sessionStatus === 'stopped'} variant="outline">
+                                    {sessionStatus === 'running' ? <Pause className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
+                                    {sessionStatus === 'running' ? 'Pause' : 'Resume'}
+                               </Button>
+                               <Button onClick={handleStop} disabled={sessionStatus !== 'running' && sessionStatus !== 'paused'} variant="destructive" className="col-span-2">Stop</Button>
+                             </CardFooter>
+                         ) : (
+                             <CardFooter>
+                                <Button onClick={handleStart} className="w-full bg-green-600 hover:bg-green-700">
+                                    <Play className="mr-2 h-4 w-4" /> Start New Session
+                                </Button>
+                             </CardFooter>
+                         )}
                     </Card>
 
                     <Card>
@@ -518,3 +515,5 @@ export default function SessionPage() {
         </div>
     );
 }
+
+    
