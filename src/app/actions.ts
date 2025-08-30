@@ -26,7 +26,7 @@ export async function login(
       // Hardcoded admin password check
       if (password === "Teamox76@=172089") {
         await createSession({ role: 'admin', username: 'Admin User' });
-        return { success: true, message: "Admin login successful" };
+        redirect('/admin');
       }
       return { success: false, message: "Invalid Admin Password." };
     } 
@@ -44,12 +44,15 @@ export async function login(
       // In a real app, passwords should be hashed.
        if (staff.password === password) {
         await createSession({ role: 'staff', username: staff.name });
-        return { success: true, message: "Staff login successful" };
+        redirect('/staff');
       }
     }
 
     return { success: false, message: "Invalid username or password" };
   } catch (error) {
+    if (error instanceof Error && error.message.includes('NEXT_REDIRECT')) {
+        throw error;
+    }
     console.error("Login Error:", error);
     return { success: false, message: "An unexpected error occurred during login." };
   }
