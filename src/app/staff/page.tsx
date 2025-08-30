@@ -42,7 +42,7 @@ const getTableImage = (category: string) => {
 
 
 export default function StaffDashboard() {
-  const [tables, setTables] = useState<TableType[]>([]);
+  const [tables, setTables] = useState<TableType[] | null>(null);
   const [sessions, setSessions] = useState<Record<string, ActiveSession>>({});
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
