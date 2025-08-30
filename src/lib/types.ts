@@ -51,4 +51,5 @@ export interface Member {
   name: string;
   planId: string;
   remainingHours: number;
+  mobileNumber?: string;
 }

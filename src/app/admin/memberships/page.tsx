@@ -278,6 +278,7 @@ export default function MembershipsPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Customer Name</TableHead>
+                    <TableHead>Mobile Number</TableHead>
                     <TableHead>Plan</TableHead>
                     <TableHead>Remaining Hours</TableHead>
                     <TableHead className="w-[200px]">Usage</TableHead>
@@ -292,6 +293,7 @@ export default function MembershipsPage() {
                     return (
                       <TableRow key={member.id}>
                         <TableCell className="font-medium">{member.name}</TableCell>
+                        <TableCell>{member.mobileNumber || 'N/A'}</TableCell>
                         <TableCell>{plan?.name || 'Unknown Plan'}</TableCell>
                         <TableCell>{member.remainingHours.toFixed(1)} / {plan?.totalHours || '?'} hrs</TableCell>
                         <TableCell>
@@ -319,19 +321,27 @@ export default function MembershipsPage() {
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-              <Label htmlFor="name">Customer Name</Label>
-              <Input id="name" name="name" required />
-              <Label htmlFor="planId">Membership Plan</Label>
-              <Select name="planId" required>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a plan" />
-                </SelectTrigger>
-                <SelectContent>
-                  {plans.map(plan => (
-                    <SelectItem key={plan.id} value={plan.id!}>{plan.name} - {plan.totalHours} hrs for ₹{plan.price}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="space-y-2">
+                <Label htmlFor="name">Customer Name</Label>
+                <Input id="name" name="name" required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="mobileNumber">Mobile Number</Label>
+                <Input id="mobileNumber" name="mobileNumber" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="planId">Membership Plan</Label>
+                <Select name="planId" required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a plan" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {plans.map(plan => (
+                      <SelectItem key={plan.id} value={plan.id!}>{plan.name} - {plan.totalHours} hrs for ₹{plan.price}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsMemberDialogOpen(false)}>Cancel</Button>

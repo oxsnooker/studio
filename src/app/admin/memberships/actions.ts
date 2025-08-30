@@ -19,6 +19,7 @@ const planSchema = z.object({
 const memberSchema = z.object({
   name: z.string().min(1, 'Customer name is required.'),
   planId: z.string().min(1, 'A membership plan must be selected.'),
+  mobileNumber: z.string().optional(),
 });
 
 
@@ -66,9 +67,15 @@ export async function addMember(formData: FormData) {
     return { success: false, message: 'Invalid plan selected.' };
   }
 
+  const parsed = memberSchema.parse({
+    name: formData.get('name'),
+    planId: selectedPlanId,
+    mobileNumber: formData.get('mobileNumber'),
+  });
+
+
   const data = {
-      name: formData.get('name') as string,
-      planId: selectedPlanId,
+      ...parsed,
       remainingHours: selectedPlan.totalHours,
   };
 
