@@ -4,12 +4,12 @@
 import { useState, useEffect, useMemo, useCallback, useTransition } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { getTableById, getMenuItems, saveTransaction } from '@/app/staff/actions';
-import type { Table as TableType, MenuItem, ActiveSession, Transaction, OrderItem } from '@/lib/types';
+import { getTableById, getMenuItems, saveTransaction, searchMembers, deductHoursFromMember } from '@/app/staff/actions';
+import type { Table as TableType, MenuItem, ActiveSession, Transaction, OrderItem, Member } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Loader2, ArrowLeft, Plus, Minus, Receipt, Play, Pause, Wallet, Smartphone, Split, Award } from 'lucide-react';
+import { Loader2, ArrowLeft, Plus, Minus, Receipt, Play, Pause, Wallet, Smartphone, Split, Award, Search, UserCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -23,6 +23,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 
 const formatDuration = (seconds: number) => {
@@ -48,6 +49,13 @@ export default function SessionPage() {
     const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
     const [cashAmount, setCashAmount] = useState('');
     const [upiAmount, setUpiAmount] = useState('');
+
+    // Membership state
+    const [memberSearchTerm, setMemberSearchTerm] = useState('');
+    const [searchedMembers, setSearchedMembers] = useState<Member[]>([]);
+    const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+    const [isSearching, setIsSearching] = useState(false);
+
 
     // Load table and menu data
     useEffect(() => {
@@ -208,24 +216,34 @@ export default function SessionPage() {
                 return;
             }
         }
+
+        const transaction: Transaction = {
+            tableId: table.id,
+            tableName: table.name,
+            startTime: startTimeDate.getTime(),
+            endTime: new Date().getTime(),
+            durationSeconds: session.elapsedSeconds,
+            tableCost: parseFloat(tableCost.toFixed(2)),
+            itemsCost: parseFloat(itemsCost.toFixed(2)),
+            totalAmount: totalPayable,
+            paymentMethod: selectedPaymentMethod,
+            items: session.items.map(item => ({...item})), // Create a clean copy
+            customerName: selectedMember ? selectedMember.name : session.customerName,
+            createdAt: Date.now()
+        };
         
         startTransition(async () => {
-            const transaction: Transaction = {
-                tableId: table.id,
-                tableName: table.name,
-                startTime: startTimeDate.getTime(),
-                endTime: new Date().getTime(),
-                durationSeconds: session.elapsedSeconds,
-                tableCost: parseFloat(tableCost.toFixed(2)),
-                itemsCost: parseFloat(itemsCost.toFixed(2)),
-                totalAmount: totalPayable,
-                paymentMethod: selectedPaymentMethod,
-                items: session.items.map(item => ({...item})), // Create a clean copy
-                customerName: session.customerName,
-                createdAt: Date.now()
-            };
-            
-            const result = await saveTransaction(transaction);
+            let result;
+            if (selectedPaymentMethod === 'Membership') {
+                if (!selectedMember) {
+                    toast({ variant: 'destructive', title: 'Error', description: 'No member selected.'});
+                    return;
+                }
+                const hoursToDeduct = session.elapsedSeconds / 3600;
+                result = await deductHoursFromMember(selectedMember.id, hoursToDeduct, transaction);
+            } else {
+                result = await saveTransaction(transaction);
+            }
 
             if (result.success) {
                 updateSessionInStorage(null);
@@ -240,7 +258,6 @@ export default function SessionPage() {
     const handleAddItem = useCallback((itemToAdd: MenuItem) => {
         setSession(currentSession => {
             if (!currentSession) return null;
-    
             const newSession = { ...currentSession };
             const existingItem = newSession.items.find(item => item.id === itemToAdd.id);
     
@@ -281,6 +298,39 @@ export default function SessionPage() {
         const parsedUpi = parseFloat(upiAmount) || 0;
         return Math.floor(parsedCash + parsedUpi) !== totalPayable;
     }, [selectedPaymentMethod, cashAmount, upiAmount, totalPayable]);
+
+    const handleMemberSearch = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!memberSearchTerm.trim()) return;
+        setIsSearching(true);
+        setSearchedMembers([]);
+        setSelectedMember(null);
+        try {
+            const members = await searchMembers(memberSearchTerm);
+            setSearchedMembers(members);
+            if (members.length === 0) {
+                 toast({ variant: 'destructive', title: 'Not Found', description: 'No members found with that name or mobile number.' });
+            }
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to search for members.' });
+        } finally {
+            setIsSearching(false);
+        }
+    };
+    
+    const playedHours = useMemo(() => session ? session.elapsedSeconds / 3600 : 0, [session]);
+    const hasSufficientHours = useMemo(() => {
+        if (!selectedMember) return false;
+        return selectedMember.remainingHours >= playedHours;
+    }, [selectedMember, playedHours]);
+    
+    useEffect(() => {
+        // Reset member search when payment method changes
+        setSelectedMember(null);
+        setSearchedMembers([]);
+        setMemberSearchTerm('');
+    }, [selectedPaymentMethod]);
+
 
     if (isLoading) {
         return (
@@ -469,7 +519,7 @@ export default function SessionPage() {
                         <div className="bg-muted/50 rounded-lg p-4">
                             <h4 className="font-semibold mb-3">{table?.name} - Bill Summary</h4>
                             <div className="space-y-2 text-sm">
-                                <div className="flex justify-between"><span className="text-muted-foreground">Customer:</span><span>{session?.customerName}</span></div>
+                                <div className="flex justify-between"><span className="text-muted-foreground">Customer:</span><span>{selectedMember?.name || session?.customerName}</span></div>
                                 <div className="flex justify-between"><span className="text-muted-foreground">Time Cost:</span><span>₹{tableCost.toFixed(2)}</span></div>
                                 <div className="flex justify-between"><span className="text-muted-foreground">Items Cost:</span><span>₹{itemsCost.toFixed(2)}</span></div>
                                 <Separator className="my-2"/>
@@ -537,11 +587,69 @@ export default function SessionPage() {
                                     )}
                                 </div>
                              )}
+                            {selectedPaymentMethod === 'Membership' && (
+                                <div className="space-y-4 mt-4 p-4 border rounded-md">
+                                    <form onSubmit={handleMemberSearch}>
+                                        <Label htmlFor="memberSearch">Search Member (Name or Mobile)</Label>
+                                        <div className="flex gap-2">
+                                            <Input 
+                                                id="memberSearch" 
+                                                value={memberSearchTerm} 
+                                                onChange={(e) => setMemberSearchTerm(e.target.value)}
+                                                placeholder="e.g., John Doe or 9876543210"
+                                            />
+                                            <Button type="submit" disabled={isSearching || !memberSearchTerm.trim()}>
+                                                {isSearching ? <Loader2 className="h-4 w-4 animate-spin"/> : <Search className="h-4 w-4" />}
+                                            </Button>
+                                        </div>
+                                    </form>
+
+                                    {searchedMembers.length > 0 && !selectedMember && (
+                                        <div className="space-y-2">
+                                            <p className='text-sm font-medium'>Select a member:</p>
+                                            {searchedMembers.map(member => (
+                                                <div key={member.id} onClick={() => setSelectedMember(member)} className="p-2 border rounded-md cursor-pointer hover:bg-muted">
+                                                    <p className='font-semibold'>{member.name}</p>
+                                                    <p className='text-xs text-muted-foreground'>Mobile: {member.mobileNumber} | Hours Left: {member.remainingHours.toFixed(2)}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    
+                                    {selectedMember && (
+                                        <Card className="bg-muted">
+                                            <CardHeader>
+                                                <CardTitle className="text-base flex items-center gap-2">
+                                                    <UserCheck className="text-green-600"/>
+                                                    Selected Member
+                                                </CardTitle>
+                                            </CardHeader>
+                                            <CardContent className="text-sm space-y-2">
+                                                <p><strong>Name:</strong> {selectedMember.name}</p>
+                                                <p><strong>Time Played:</strong> {playedHours.toFixed(2)} hours</p>
+                                                <p><strong>Remaining Hours:</strong> {selectedMember.remainingHours.toFixed(2)} hours</p>
+                                                {!hasSufficientHours && (
+                                                    <Alert variant="destructive">
+                                                        <AlertTitle>Insufficient Hours</AlertTitle>
+                                                        <AlertDescription>
+                                                           This member does not have enough hours. Please recharge or use another payment method.
+                                                        </AlertDescription>
+                                                    </Alert>
+                                                )}
+                                            </CardContent>
+                                        </Card>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsBillDialogOpen(false)}>Cancel</Button>
-                        <Button className="bg-green-600 hover:bg-green-700" onClick={handleCompletePayment} disabled={!selectedPaymentMethod || isSplitPayMismatch || isPending}>
+                        <Button 
+                            className="bg-green-600 hover:bg-green-700" 
+                            onClick={handleCompletePayment} 
+                            disabled={!selectedPaymentMethod || isSplitPayMismatch || isPending || (selectedPaymentMethod === 'Membership' && (!selectedMember || !hasSufficientHours))}
+                        >
                             {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Settle Bill
                         </Button>

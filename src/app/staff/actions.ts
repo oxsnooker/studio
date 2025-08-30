@@ -1,9 +1,9 @@
 
 'use server';
 
-import { doc, getDoc, collection, addDoc, runTransaction, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, runTransaction, updateDoc, query, where, getDocs, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Table, Transaction, MenuItem as MenuItemType } from '@/lib/types';
+import type { Table, Transaction, MenuItem as MenuItemType, Member } from '@/lib/types';
 import { getMenuItems as getAllMenuItems } from '@/app/admin/menu/actions';
 import { revalidatePath } from 'next/cache';
 
@@ -28,7 +28,6 @@ export async function getMenuItems(): Promise<MenuItemType[]> {
 export async function saveTransaction(transactionData: Transaction) {
   try {
     await runTransaction(db, async (transaction) => {
-      // ** Fix Starts here **
       // 1. READ all item documents first.
       const itemRefsAndDocs = await Promise.all(
         transactionData.items.map(async (item) => {
@@ -58,7 +57,6 @@ export async function saveTransaction(transactionData: Transaction) {
         }
         transaction.update(ref, { stock: newStock });
       }
-      // ** Fix Ends here **
     });
 
     // Revalidate paths to update data on related pages
@@ -72,4 +70,101 @@ export async function saveTransaction(transactionData: Transaction) {
     console.error('Error saving transaction:', error);
     return { success: false, message: `Failed to save transaction: ${error.message}` };
   }
+}
+
+export async function searchMembers(searchTerm: string): Promise<Member[]> {
+    if (!searchTerm) return [];
+
+    const membersRef = collection(db, 'members');
+    
+    // As Firestore doesn't support native full-text search, we query by name and mobile number separately.
+    // A more advanced solution might use a dedicated search service like Algolia.
+    const nameQuery = query(membersRef, where('name', '>=', searchTerm), where('name', '<=', searchTerm + '\uf8ff'));
+    const mobileQuery = query(membersRef, where('mobileNumber', '==', searchTerm));
+    
+    const [nameSnapshot, mobileSnapshot] = await Promise.all([
+        getDocs(nameQuery),
+        getDocs(mobileQuery)
+    ]);
+
+    const membersMap = new Map<string, Member>();
+    nameSnapshot.forEach(doc => {
+        membersMap.set(doc.id, { id: doc.id, ...doc.data() } as Member);
+    });
+    mobileSnapshot.forEach(doc => {
+        membersMap.set(doc.id, { id: doc.id, ...doc.data() } as Member);
+    });
+
+    return Array.from(membersMap.values());
+}
+
+
+export async function deductHoursFromMember(memberId: string, hoursToDeduct: number, transactionData: Transaction) {
+    if (!memberId || hoursToDeduct <= 0) {
+        return { success: false, message: 'Invalid member ID or hours to deduct.' };
+    }
+
+    try {
+        await runTransaction(db, async (firestoreTransaction) => {
+            const memberRef = doc(db, 'members', memberId);
+            const memberDoc = await firestoreTransaction.get(memberRef);
+
+            if (!memberDoc.exists()) {
+                throw new Error('Member not found.');
+            }
+
+            const member = memberDoc.data() as Member;
+            if (member.remainingHours < hoursToDeduct) {
+                throw new Error('Insufficient hours in membership.');
+            }
+            
+            const newRemainingHours = member.remainingHours - hoursToDeduct;
+
+            // 1. Update member's remaining hours
+            firestoreTransaction.update(memberRef, { remainingHours: newRemainingHours });
+            
+            // 2. Save the transaction record
+            const transactionRef = doc(collection(db, 'transactions'));
+            firestoreTransaction.set(transactionRef, transactionData);
+
+            // 3. Update stock for items sold
+            if (transactionData.items.length > 0) {
+                const itemRefsAndDocs = await Promise.all(
+                    transactionData.items.map(async (item) => {
+                      if (!item.id) {
+                        throw new Error(`Transaction item '${item.name}' is missing an ID.`);
+                      }
+                      const itemRef = doc(db, 'menuItems', item.id);
+                      // Important: We must use the transaction.get() inside a transaction
+                      const itemDoc = await firestoreTransaction.get(itemRef);
+                      if (!itemDoc.exists()) {
+                        throw new Error(`Item with ID ${item.id} not found!`);
+                      }
+                      return { ref: itemRef, doc: itemDoc, quantity: item.quantity };
+                    })
+                );
+
+                for (const { ref, doc, quantity } of itemRefsAndDocs) {
+                    const currentStock = doc.data().stock;
+                    const newStock = currentStock - quantity;
+                    if (newStock < 0) {
+                        console.warn(`Stock for item ${doc.data().name} (${doc.id}) is now negative (${newStock}).`);
+                    }
+                    firestoreTransaction.update(ref, { stock: newStock });
+                }
+            }
+        });
+
+        // Revalidate paths to update data on related pages
+        revalidatePath('/admin/dashboard');
+        revalidatePath('/admin/reports');
+        revalidatePath('/admin/stock');
+        revalidatePath('/admin/menu');
+        revalidatePath('/admin/memberships'); // Revalidate memberships to show updated hours
+
+        return { success: true, message: 'Hours deducted and transaction saved successfully.' };
+    } catch (error: any) {
+        console.error('Error in membership transaction:', error);
+        return { success: false, message: `Failed to complete membership transaction: ${error.message}` };
+    }
 }
