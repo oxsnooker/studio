@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo, useCallback, useTransition } from 'react';
@@ -209,7 +208,7 @@ export default function SessionPage() {
             const transaction: Transaction = {
                 tableId: table.id,
                 tableName: table.name,
-                startTime: session.startTime.getTime(),
+                startTime: new Date(session.startTime).getTime(),
                 endTime: new Date().getTime(),
                 durationSeconds: session.elapsedSeconds,
                 tableCost: parseFloat(tableCost.toFixed(2)),
@@ -234,40 +233,42 @@ export default function SessionPage() {
     };
 
     const handleAddItem = useCallback((itemToAdd: MenuItem) => {
-        setSession(currentSession => {
-            if (!currentSession) return null;
-            
-            const newSession = JSON.parse(JSON.stringify(currentSession)); // Deep copy
-            const existingItem = newSession.items.find((i: MenuItem) => i.id === itemToAdd.id);
-            
-            if (existingItem) {
-              existingItem.quantity += 1;
-            } else {
-              newSession.items.push({ ...itemToAdd, quantity: 1 });
-            }
-            
-            updateSessionInStorage(newSession);
-            return newSession;
-        });
+      setSession(currentSession => {
+          if (!currentSession) return null;
+  
+          let itemFound = false;
+          const newItems = currentSession.items.map(item => {
+              if (item.id === itemToAdd.id) {
+                  itemFound = true;
+                  return { ...item, quantity: item.quantity + 1 };
+              }
+              return item;
+          });
+  
+          if (!itemFound) {
+              newItems.push({ ...itemToAdd, quantity: 1 });
+          }
+  
+          const newSession = { ...currentSession, items: newItems };
+          updateSessionInStorage(newSession);
+          return newSession;
+      });
     }, [tableId]);
     
     const handleRemoveItem = useCallback((itemIdToRemove: string) => {
         setSession(currentSession => {
             if (!currentSession) return null;
-
-            const newSession = JSON.parse(JSON.stringify(currentSession)); // Deep copy
-            const itemIndex = newSession.items.findIndex((i: MenuItem) => i.id === itemIdToRemove);
-            
-            if (itemIndex === -1) return currentSession;
-
-            const item = newSession.items[itemIndex];
-            
-            if (item.quantity > 1) {
-                item.quantity -= 1;
-            } else {
-                newSession.items.splice(itemIndex, 1);
-            }
-
+    
+            const newItems = currentSession.items
+                .map(item => {
+                    if (item.id === itemIdToRemove) {
+                        return { ...item, quantity: item.quantity - 1 };
+                    }
+                    return item;
+                })
+                .filter(item => item.quantity > 0);
+    
+            const newSession = { ...currentSession, items: newItems };
             updateSessionInStorage(newSession);
             return newSession;
         });
@@ -549,3 +550,5 @@ export default function SessionPage() {
         </div>
     );
 }
+
+    
