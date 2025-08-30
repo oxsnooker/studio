@@ -89,7 +89,7 @@ export default function LoginPage() {
     <main className="flex min-h-screen flex-col items-center justify-center bg-muted/40 p-4">
       <div className="flex flex-col items-center justify-center space-y-4 mb-8">
         <Logo className="w-16 h-16" />
-        <h1 className="text-3xl font-headline font-bold">CueBook</h1>
+        <h1 className="text-3xl font-headline font-bold">THE OX SNOOKER</h1>
         <p className="text-muted-foreground">Club Management System</p>
       </div>
       <Card className="w-full max-w-sm">

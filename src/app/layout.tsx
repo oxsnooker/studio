@@ -1,10 +1,11 @@
+
 import type { Metadata } from "next";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
-  title: "CueBook",
+  title: "THE OX SNOOKER",
   description: "A management system for The Ox Snooker club.",
 };
 

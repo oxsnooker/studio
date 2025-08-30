@@ -54,7 +54,7 @@ export default function TablesPage() {
         setTables(fetchedTables);
       } catch (e: any) {
         if (e.code === 'failed-precondition') {
-            setError("Your Firestore database has not been created yet. Please go to the Firebase Console, select your 'cuebook' project, and create a Firestore database.");
+            setError("Your Firestore database has not been created yet. Please go to the Firebase Console, select your 'the-ox-snooker' project, and create a Firestore database.");
         } else if (e.code === 'permission-denied') {
             setError("Your Firestore security rules are blocking access. For development, please go to the Firebase Console and set your rules to allow read/write access.");
         } else {
