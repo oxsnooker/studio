@@ -77,7 +77,13 @@ export default function LoginPage() {
   const onStaffSubmit = (values: z.infer<typeof staffFormSchema>) => {
     startTransition(async () => {
       const result = await login(values);
-      if (!result?.success) {
+      if (result.success) {
+        toast({
+            title: "Login Successful",
+            description: "Redirecting to staff dashboard...",
+        });
+        router.push('/staff');
+      } else {
         toast({
           variant: "destructive",
           title: "Login Failed",
@@ -91,7 +97,13 @@ export default function LoginPage() {
   const onAdminSubmit = (values: z.infer<typeof adminFormSchema>) => {
     startTransition(async () => {
         const result = await login(values);
-        if (!result?.success) {
+        if (result.success) {
+             toast({
+                title: "Login Successful",
+                description: "Redirecting to admin dashboard...",
+            });
+            router.push('/admin');
+        } else {
             toast({
                 variant: "destructive",
                 title: "Login Failed",

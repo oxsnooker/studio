@@ -1,7 +1,7 @@
 
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   LayoutDashboard,
@@ -17,7 +17,6 @@ import { Logo } from "@/components/logo";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { logout } from "@/app/actions";
 
 const navItems = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -35,6 +34,12 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleLogout = () => {
+      // In a real app with sessions, you'd call a server action here.
+      router.push('/');
+  }
 
   return (
     <div className="min-h-screen w-full flex flex-col bg-muted/40">
@@ -55,12 +60,10 @@ export default function AdminLayout({
             <AvatarImage src="https://picsum.photos/100/100" data-ai-hint="male avatar" />
             <AvatarFallback>A</AvatarFallback>
           </Avatar>
-           <form action={logout}>
-             <Button type="submit" variant="outline" size="icon">
-                <LogOut className="h-5 w-5" />
-                <span className="sr-only">Logout</span>
-              </Button>
-           </form>
+           <Button onClick={handleLogout} variant="outline" size="icon">
+              <LogOut className="h-5 w-5" />
+              <span className="sr-only">Logout</span>
+            </Button>
         </div>
       </header>
 
