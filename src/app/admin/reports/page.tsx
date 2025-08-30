@@ -35,6 +35,7 @@ import {
   Loader2,
   Terminal,
   Split,
+  RefreshCw,
 } from "lucide-react";
 import { getStaff } from "../staff/actions";
 import type { Staff, Transaction } from "@/lib/types";
@@ -171,6 +172,10 @@ export default function ReportsPage() {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold tracking-tight">Sales Reports</h2>
         <div className="flex items-center gap-2">
+           <Button variant="outline">
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Clear
+          </Button>
           <Button variant="destructive" className="bg-red-600 hover:bg-red-700">
             <FileDown className="mr-2 h-4 w-4" />
             Export PDF
