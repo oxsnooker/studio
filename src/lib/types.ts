@@ -27,6 +27,7 @@ export interface ActiveSession {
   pauseTime?: Date;
   totalPauseDuration: number;
   customerName: string;
+  memberId: string | null;
 }
 
 export interface Transaction {
@@ -76,3 +77,5 @@ export interface Member {
   mobileNumber?: string;
   validityDate?: number; // Expiration timestamp
 }
+
+    

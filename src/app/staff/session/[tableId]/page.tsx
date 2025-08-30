@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo, useCallback, useTransition } from 'react'
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { getTableById, getMenuItems, saveTransaction, searchMembers, deductHoursFromMember } from '@/app/staff/actions';
-import type { Table as TableType, MenuItem, ActiveSession, Transaction, OrderItem, Member } from '@/lib/types';
+import type { Table as TableType, MenuItem, ActiveSession, Transaction, OrderItem, Member, MembershipPlan } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -24,6 +24,8 @@ import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { getMembershipPlans } from '@/app/admin/memberships/actions';
+import { format } from "date-fns";
 
 
 const formatDuration = (seconds: number) => {
@@ -41,6 +43,7 @@ export default function SessionPage() {
 
     const [table, setTable] = useState<TableType | null>(null);
     const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+    const [membershipPlans, setMembershipPlans] = useState<MembershipPlan[]>([]);
     const [session, setSession] = useState<ActiveSession | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isPending, startTransition] = useTransition();
@@ -63,12 +66,14 @@ export default function SessionPage() {
             if (!tableId) return;
             setIsLoading(true);
             try {
-                const [tableData, menuData] = await Promise.all([
+                const [tableData, menuData, plansData] = await Promise.all([
                     getTableById(tableId),
-                    getMenuItems()
+                    getMenuItems(),
+                    getMembershipPlans()
                 ]);
                 setTable(tableData);
                 setMenuItems(menuData);
+                setMembershipPlans(plansData);
             } catch (error) {
                 toast({ variant: 'destructive', title: 'Error', description: 'Failed to load session data.' });
             } finally {
@@ -85,6 +90,16 @@ export default function SessionPage() {
             return value;
         });
         setSession(allSessions[tableId] || null);
+        if (allSessions[tableId]?.memberId) {
+             // If a member is already associated, fetch their full details.
+            const fetchMember = async () => {
+                const members = await searchMembers(allSessions[tableId].memberId);
+                if (members.length > 0) {
+                    setSelectedMember(members[0]);
+                }
+            };
+            fetchMember();
+        }
     }, [tableId]);
     
     // Timer updates
@@ -131,7 +146,8 @@ export default function SessionPage() {
             status: 'running',
             items: [],
             totalPauseDuration: 0,
-            customerName: 'Walk-in Customer'
+            customerName: 'Walk-in Customer',
+            memberId: null
         };
         updateSessionInStorage(newSession);
     };
@@ -258,15 +274,19 @@ export default function SessionPage() {
     const handleAddItem = useCallback((itemToAdd: MenuItem) => {
         setSession(currentSession => {
             if (!currentSession) return null;
-            const newSession = { ...currentSession };
-            const existingItem = newSession.items.find(item => item.id === itemToAdd.id);
+    
+            let newItems;
+            const existingItem = currentSession.items.find(item => item.id === itemToAdd.id);
     
             if (existingItem) {
-                existingItem.quantity += 1;
+                newItems = currentSession.items.map(item => 
+                    item.id === itemToAdd.id ? { ...item, quantity: item.quantity + 1 } : item
+                );
             } else {
-                newSession.items.push({ ...itemToAdd, quantity: 1 });
+                newItems = [...currentSession.items, { ...itemToAdd, quantity: 1 }];
             }
     
+            const newSession = { ...currentSession, items: newItems };
             updateSessionInStorage(newSession);
             return newSession;
         });
@@ -276,17 +296,19 @@ export default function SessionPage() {
         setSession(currentSession => {
             if (!currentSession) return null;
     
-            const newSession = { ...currentSession };
-            const itemIndex = newSession.items.findIndex(item => item.id === itemIdToRemove);
+            const existingItem = currentSession.items.find(item => item.id === itemIdToRemove);
+            if (!existingItem) return currentSession;
     
-            if (itemIndex > -1) {
-                if (newSession.items[itemIndex].quantity > 1) {
-                    newSession.items[itemIndex].quantity -= 1;
-                } else {
-                    newSession.items.splice(itemIndex, 1);
-                }
+            let newItems;
+            if (existingItem.quantity > 1) {
+                newItems = currentSession.items.map(item => 
+                    item.id === itemIdToRemove ? { ...item, quantity: item.quantity - 1 } : item
+                );
+            } else {
+                newItems = currentSession.items.filter(item => item.id !== itemIdToRemove);
             }
     
+            const newSession = { ...currentSession, items: newItems };
             updateSessionInStorage(newSession);
             return newSession;
         });
@@ -317,6 +339,18 @@ export default function SessionPage() {
             setIsSearching(false);
         }
     };
+
+    const handleSelectMember = (member: Member) => {
+        setSelectedMember(member);
+        setSearchedMembers([]);
+        setMemberSearchTerm('');
+        setSession(prev => {
+            if (!prev) return null;
+            const newSession = { ...prev, customerName: member.name, memberId: member.id };
+            updateSessionInStorage(newSession);
+            return newSession;
+        });
+    };
     
     const playedHours = useMemo(() => session ? session.elapsedSeconds / 3600 : 0, [session]);
     const hasSufficientHours = useMemo(() => {
@@ -325,10 +359,12 @@ export default function SessionPage() {
     }, [selectedMember, playedHours]);
     
     useEffect(() => {
-        // Reset member search when payment method changes
-        setSelectedMember(null);
-        setSearchedMembers([]);
-        setMemberSearchTerm('');
+        // Reset member search when payment method changes, but not if it's changing to 'Membership'
+        if (selectedPaymentMethod !== 'Membership') {
+            setSelectedMember(null);
+            setSearchedMembers([]);
+            setMemberSearchTerm('');
+        }
     }, [selectedPaymentMethod]);
 
 
@@ -345,6 +381,7 @@ export default function SessionPage() {
     }
 
     const sessionStatus = session?.status || 'idle';
+    const memberPlan = selectedMember ? membershipPlans.find(p => p.id === selectedMember.planId) : null;
 
     return (
         <div className="p-4 md:p-6 lg:p-8">
@@ -412,10 +449,41 @@ export default function SessionPage() {
 
                     <Card>
                         <CardHeader>
-                            <CardTitle className="text-base">Customer Name</CardTitle>
+                            <CardTitle className="text-base">Membership Check</CardTitle>
                         </CardHeader>
-                        <CardContent>
-                            <p>{session?.customerName || 'Walk-in Customer'}</p>
+                        <CardContent className="space-y-4">
+                            <form onSubmit={handleMemberSearch} className="flex gap-2">
+                                <Input 
+                                    id="memberSearchMain" 
+                                    value={memberSearchTerm} 
+                                    onChange={(e) => setMemberSearchTerm(e.target.value)}
+                                    placeholder="Search by Name or Mobile"
+                                    disabled={!session}
+                                />
+                                <Button type="submit" disabled={isSearching || !memberSearchTerm.trim() || !session}>
+                                    {isSearching ? <Loader2 className="h-4 w-4 animate-spin"/> : <Search className="h-4 w-4" />}
+                                </Button>
+                            </form>
+                            
+                            {searchedMembers.length > 0 && (
+                                <div className="space-y-2">
+                                    {searchedMembers.map(member => (
+                                        <div key={member.id} onClick={() => handleSelectMember(member)} className="p-2 border rounded-md cursor-pointer hover:bg-muted">
+                                            <p className='font-semibold'>{member.name}</p>
+                                            <p className='text-xs text-muted-foreground'>Mobile: {member.mobileNumber}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {selectedMember && (
+                                <div className="text-sm space-y-2 pt-2 border-t">
+                                    <h4 className="font-semibold text-primary">{selectedMember.name}</h4>
+                                    <div className="flex justify-between"><span>Plan:</span> <span>{memberPlan?.name || 'N/A'}</span></div>
+                                    <div className="flex justify-between"><span>Remaining:</span> <span>{selectedMember.remainingHours.toFixed(2)} hrs</span></div>
+                                    <div className="flex justify-between"><span>Expires:</span> <span>{selectedMember.validityDate ? format(new Date(selectedMember.validityDate), "PPP") : 'N/A'}</span></div>
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
                 </div>
@@ -485,7 +553,7 @@ export default function SessionPage() {
                                  </div>
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Customer:</span>
-                                    <span>{session?.customerName || 'Walk-in Customer'}</span>
+                                    <span className='font-medium'>{session?.customerName || 'Walk-in Customer'}</span>
                                 </div>
                                  <div className="flex justify-between">
                                     <span className="text-muted-foreground">Status:</span>
@@ -589,31 +657,8 @@ export default function SessionPage() {
                              )}
                             {selectedPaymentMethod === 'Membership' && (
                                 <div className="space-y-4 mt-4 p-4 border rounded-md">
-                                    <form onSubmit={handleMemberSearch}>
-                                        <Label htmlFor="memberSearch">Search Member (Name or Mobile)</Label>
-                                        <div className="flex gap-2">
-                                            <Input 
-                                                id="memberSearch" 
-                                                value={memberSearchTerm} 
-                                                onChange={(e) => setMemberSearchTerm(e.target.value)}
-                                                placeholder="e.g., John Doe or 9876543210"
-                                            />
-                                            <Button type="submit" disabled={isSearching || !memberSearchTerm.trim()}>
-                                                {isSearching ? <Loader2 className="h-4 w-4 animate-spin"/> : <Search className="h-4 w-4" />}
-                                            </Button>
-                                        </div>
-                                    </form>
-
-                                    {searchedMembers.length > 0 && !selectedMember && (
-                                        <div className="space-y-2">
-                                            <p className='text-sm font-medium'>Select a member:</p>
-                                            {searchedMembers.map(member => (
-                                                <div key={member.id} onClick={() => setSelectedMember(member)} className="p-2 border rounded-md cursor-pointer hover:bg-muted">
-                                                    <p className='font-semibold'>{member.name}</p>
-                                                    <p className='text-xs text-muted-foreground'>Mobile: {member.mobileNumber} | Hours Left: {member.remainingHours.toFixed(2)}</p>
-                                                </div>
-                                            ))}
-                                        </div>
+                                    {!selectedMember && (
+                                        <p className="text-sm text-center text-muted-foreground">Please use the 'Membership Check' feature on the main page to select a member first.</p>
                                     )}
                                     
                                     {selectedMember && (
