@@ -28,33 +28,37 @@ export async function getMenuItems(): Promise<MenuItemType[]> {
 export async function saveTransaction(transactionData: Transaction) {
   try {
     await runTransaction(db, async (transaction) => {
-      // 1. Add the new transaction document
+      // ** Fix Starts here **
+      // 1. READ all item documents first.
+      const itemRefsAndDocs = await Promise.all(
+        transactionData.items.map(async (item) => {
+          if (!item.id) {
+            throw new Error(`Transaction item '${item.name}' is missing an ID.`);
+          }
+          const itemRef = doc(db, 'menuItems', item.id);
+          const itemDoc = await transaction.get(itemRef);
+          if (!itemDoc.exists()) {
+            throw new Error(`Item with ID ${item.id} not found!`);
+          }
+          return { ref: itemRef, doc: itemDoc, quantity: item.quantity };
+        })
+      );
+
+      // 2. WRITE the new transaction document.
       const transactionRef = doc(collection(db, 'transactions'));
       transaction.set(transactionRef, transactionData);
 
-      // 2. Decrement stock for each item
-      for (const item of transactionData.items) {
-          if (!item.id) {
-            console.error(`Transaction item '${item.name}' is missing an ID. Skipping stock update.`);
-            continue; // Skip this item if it has no ID
-          }
-        const itemRef = doc(db, 'menuItems', item.id);
-        const itemDoc = await transaction.get(itemRef);
+      // 3. WRITE the stock updates.
+      for (const { ref, doc, quantity } of itemRefsAndDocs) {
+        const currentStock = doc.data().stock;
+        const newStock = currentStock - quantity;
 
-        if (!itemDoc.exists()) {
-          throw new Error(`Item with ID ${item.id} not found!`);
-        }
-
-        const currentStock = itemDoc.data().stock;
-        const newStock = currentStock - item.quantity;
-        
         if (newStock < 0) {
-            // This could be an issue, but for now we'll allow it and maybe it can be reconciled later.
-            console.warn(`Stock for item ${item.name} (${item.id}) is now negative (${newStock}).`);
+          console.warn(`Stock for item ${doc.data().name} (${doc.id}) is now negative (${newStock}).`);
         }
-
-        transaction.update(itemRef, { stock: newStock });
+        transaction.update(ref, { stock: newStock });
       }
+      // ** Fix Ends here **
     });
 
     // Revalidate paths to update data on related pages
