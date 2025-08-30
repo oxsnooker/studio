@@ -9,7 +9,7 @@ import type { Table as TableType, MenuItem, ActiveSession } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Loader2, ArrowLeft, Plus, Minus, Receipt } from 'lucide-react';
+import { Loader2, ArrowLeft, Plus, Minus, Receipt, Play } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -89,13 +89,11 @@ export default function SessionPage() {
             setSession(prev => {
                 if (!prev || prev.status !== 'running') return prev;
                 
-                // Recalculate elapsed seconds based on start time to avoid drift
                 const elapsed = Math.floor((new Date().getTime() - new Date(prev.startTime).getTime()) / 1000) - prev.totalPauseDuration;
                 if(prev.elapsedSeconds === elapsed) return prev;
 
                 const newSession = { ...prev, elapsedSeconds: elapsed };
                 
-                // Update localStorage
                 const allSessions = JSON.parse(localStorage.getItem('activeSessions') || '{}');
                 allSessions[tableId] = newSession;
                 localStorage.setItem('activeSessions', JSON.stringify(allSessions));
@@ -115,6 +113,7 @@ export default function SessionPage() {
             delete allSessions[tableId];
         }
         localStorage.setItem('activeSessions', JSON.stringify(allSessions));
+        setSession(newSession);
     };
 
     const handleStart = () => {
@@ -124,15 +123,14 @@ export default function SessionPage() {
             startTime: new Date(),
             elapsedSeconds: 0,
             status: 'running',
-            items: [],
+            items: session?.items || [], // Keep items if they were added before starting
             totalPauseDuration: 0,
-            customerName: 'Walk-in Customer'
+            customerName: session?.customerName || 'Walk-in Customer'
         };
-        setSession(newSession);
         updateSessionInStorage(newSession);
     };
 
-    const handlePause = () => { // Renamed from Stop to Pause
+    const handlePause = () => { 
         setSession(prev => {
             if (!prev || prev.status !== 'running') return prev;
             const newSession = { ...prev, status: 'paused' as 'paused', pauseTime: new Date() };
@@ -179,8 +177,6 @@ export default function SessionPage() {
     
     const handleCompletePayment = (paymentMethod: string) => {
         if (!tableId) return;
-        // Here you would typically save the transaction to a database.
-        // For now, we'll just clear it from localStorage.
         updateSessionInStorage(null);
         toast({ title: 'Success', description: `Bill settled with ${paymentMethod}.` });
         router.push('/staff');
@@ -188,15 +184,23 @@ export default function SessionPage() {
 
     const handleAddItem = (item: MenuItem) => {
         setSession(prev => {
-            if (!prev) return prev;
-            const existingItem = prev.items.find(i => i.id === item.id);
+            const currentSession = prev || {
+                startTime: new Date(),
+                elapsedSeconds: 0,
+                status: 'not-started',
+                items: [],
+                totalPauseDuration: 0,
+                customerName: 'Walk-in Customer'
+            };
+
+            const existingItem = currentSession.items.find(i => i.id === item.id);
             let newItems;
             if (existingItem) {
-                newItems = prev.items.map(i => i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i);
+                newItems = currentSession.items.map(i => i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i);
             } else {
-                newItems = [...prev.items, { ...item, quantity: 1 }];
+                newItems = [...currentSession.items, { ...item, quantity: 1 }];
             }
-            const newSession = { ...prev, items: newItems };
+            const newSession = { ...currentSession, items: newItems };
             updateSessionInStorage(newSession);
             return newSession;
         });
@@ -218,15 +222,24 @@ export default function SessionPage() {
         });
     };
 
+    const effectiveSession = useMemo(() => session || {
+        startTime: new Date(),
+        elapsedSeconds: 0,
+        status: 'not-started',
+        items: [],
+        totalPauseDuration: 0,
+        customerName: 'Walk-in Customer',
+    }, [session]);
+
     const tableCost = useMemo(() => {
-        if (!session || !table) return 0;
-        return (session.elapsedSeconds / 3600) * table.rate;
-    }, [session, table]);
+        if (!effectiveSession || !table) return 0;
+        return (effectiveSession.elapsedSeconds / 3600) * table.rate;
+    }, [effectiveSession, table]);
 
     const itemsCost = useMemo(() => {
-        if (!session) return 0;
-        return session.items.reduce((acc, item) => acc + item.price * item.quantity, 0);
-    }, [session]);
+        if (!effectiveSession) return 0;
+        return effectiveSession.items.reduce((acc, item) => acc + item.price * item.quantity, 0);
+    }, [effectiveSession]);
 
     const totalPayable = tableCost + itemsCost;
 
@@ -240,15 +253,6 @@ export default function SessionPage() {
 
     if (!table) {
         return <div className="flex h-screen items-center justify-center">Table not found.</div>;
-    }
-    
-    if (!session) {
-        return (
-             <div className="flex h-screen items-center justify-center flex-col gap-4">
-                <p>No active session for {table.name}.</p>
-                <Button onClick={handleStart}>Start New Session</Button>
-            </div>
-        )
     }
 
     return (
@@ -268,13 +272,13 @@ export default function SessionPage() {
                                 <CardTitle className="text-lg">{table.name}</CardTitle>
                                 <p className="text-sm text-muted-foreground">{table.category} Table</p>
                             </div>
-                            {session.status && <Badge className={session.status === 'running' ? 'bg-green-500' : 'bg-yellow-500'}>{session.status.charAt(0).toUpperCase() + session.status.slice(1)}</Badge>}
+                            {effectiveSession.status !== 'not-started' && <Badge className={effectiveSession.status === 'running' ? 'bg-green-500' : 'bg-yellow-500'}>{effectiveSession.status.charAt(0).toUpperCase() + effectiveSession.status.slice(1)}</Badge>}
                         </CardHeader>
                         <CardContent>
                             <div className="grid grid-cols-2 gap-4 text-sm mt-4">
                                 <div>
                                     <p className="text-muted-foreground">Timer</p>
-                                    <p className="text-2xl font-mono font-bold">{formatDuration(session.elapsedSeconds)}</p>
+                                    <p className="text-2xl font-mono font-bold">{formatDuration(effectiveSession.elapsedSeconds)}</p>
                                 </div>
                                 <div>
                                     <p className="text-muted-foreground">Price per hour</p>
@@ -286,7 +290,7 @@ export default function SessionPage() {
                                 </div>
                                 <div>
                                     <p className="text-muted-foreground">Started At:</p>
-                                    <p>{new Date(session.startTime).toLocaleTimeString()}</p>
+                                    <p>{effectiveSession.status === 'not-started' ? 'Not started' : new Date(effectiveSession.startTime).toLocaleTimeString()}</p>
                                 </div>
                                  <div className="col-span-2 text-right text-xs text-muted-foreground">
                                     Current Time: {currentTime.toLocaleTimeString()}
@@ -294,8 +298,10 @@ export default function SessionPage() {
                             </div>
                         </CardContent>
                         <CardFooter className="grid grid-cols-2 gap-2">
-                           <Button onClick={handleResume} disabled={session.status !== 'paused'} variant="outline">Resume</Button>
-                           <Button onClick={session.status === 'running' ? handlePause : handleStop} disabled={session.status === 'stopped'} variant="destructive">{session.status === 'running' ? 'Pause' : 'Stop'}</Button>
+                           {effectiveSession.status === 'not-started' && <Button onClick={handleStart} className="col-span-2 bg-green-600 hover:bg-green-700"><Play className="mr-2 h-4 w-4"/>Start</Button>}
+                           {effectiveSession.status === 'running' && <Button onClick={handlePause} variant="destructive">Pause</Button>}
+                           {effectiveSession.status === 'paused' && <Button onClick={handleResume} variant="outline">Resume</Button>}
+                           {effectiveSession.status !== 'not-started' && <Button onClick={handleStop} disabled={effectiveSession.status === 'stopped'} variant={effectiveSession.status === 'running' ? 'outline': 'destructive'}>Stop</Button>}
                         </CardFooter>
                     </Card>
 
@@ -304,7 +310,7 @@ export default function SessionPage() {
                             <CardTitle className="text-base">Customer Name</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <p>{session.customerName}</p>
+                            <p>{effectiveSession.customerName}</p>
                         </CardContent>
                     </Card>
                 </div>
@@ -328,7 +334,7 @@ export default function SessionPage() {
                                             <Button variant="outline" size="icon" className="h-7 w-7 rounded-full bg-red-100 text-red-600 hover:bg-red-200" onClick={() => handleRemoveItem(item.id)}>
                                                 <Minus className="h-4 w-4" />
                                             </Button>
-                                            <span className="w-4 text-center font-bold">{session.items.find(i => i.id === item.id)?.quantity || 0}</span>
+                                            <span className="w-4 text-center font-bold">{effectiveSession.items.find(i => i.id === item.id)?.quantity || 0}</span>
                                             <Button variant="outline" size="icon" className="h-7 w-7 rounded-full bg-green-100 text-green-600 hover:bg-green-200" onClick={() => handleAddItem(item)}>
                                                 <Plus className="h-4 w-4" />
                                             </Button>
@@ -348,11 +354,11 @@ export default function SessionPage() {
                             <CardTitle>Checkout Summary</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                             {session.items.length === 0 ? (
+                             {effectiveSession.items.length === 0 ? (
                                 <p className="text-sm text-center text-muted-foreground py-8">No items added</p>
                             ) : (
                                 <ScrollArea className="h-48 pr-4">
-                                    {session.items.map(item => (
+                                    {effectiveSession.items.map(item => (
                                         <div key={item.id} className="flex justify-between text-sm mb-2">
                                             <span>{item.quantity} x {item.name}</span>
                                             <span>₹{(item.quantity * item.price).toFixed(2)}</span>
@@ -374,11 +380,11 @@ export default function SessionPage() {
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Customer:</span>
-                                    <span>{session.customerName}</span>
+                                    <span>{effectiveSession.customerName}</span>
                                 </div>
                                  <div className="flex justify-between">
                                     <span className="text-muted-foreground">Status:</span>
-                                    <span className="font-medium text-primary">{session.status.charAt(0).toUpperCase() + session.status.slice(1)}</span>
+                                    <span className="font-medium text-primary">{effectiveSession.status.charAt(0).toUpperCase() + effectiveSession.status.slice(1)}</span>
                                 </div>
                             </div>
                         </CardContent>
@@ -387,10 +393,10 @@ export default function SessionPage() {
                                 <span className="text-lg font-bold">Total Payable:</span>
                                 <span className="text-2xl font-bold">₹{totalPayable.toFixed(2)}</span>
                             </div>
-                            <Button size="lg" onClick={handleSettleBill} disabled={session.status !== 'stopped'}>
+                            <Button size="lg" onClick={handleSettleBill} disabled={effectiveSession.status !== 'stopped'}>
                                 <Receipt className="mr-2 h-5 w-5" /> Settle Bill
                             </Button>
-                             {session.status !== 'stopped' && (
+                             {effectiveSession.status !== 'stopped' && effectiveSession.status !== 'not-started' &&(
                                 <p className="text-xs text-center text-red-500">Please 'Stop' the timer to settle the bill.</p>
                             )}
                         </CardFooter>
@@ -409,7 +415,7 @@ export default function SessionPage() {
                         <Card className="p-4">
                             <h4 className="font-semibold mb-2">Bill Summary</h4>
                             <div className="space-y-2 text-sm">
-                                <div className="flex justify-between"><span className="text-muted-foreground">Customer:</span><span>{session.customerName}</span></div>
+                                <div className="flex justify-between"><span className="text-muted-foreground">Customer:</span><span>{effectiveSession.customerName}</span></div>
                                 <div className="flex justify-between"><span className="text-muted-foreground">Time Cost:</span><span>₹{tableCost.toFixed(2)}</span></div>
                                 <div className="flex justify-between"><span className="text-muted-foreground">Items Cost:</span><span>₹{itemsCost.toFixed(2)}</span></div>
                                 <Separator className="my-2"/>
@@ -437,4 +443,3 @@ export default function SessionPage() {
         </div>
     );
 }
-
