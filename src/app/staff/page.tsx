@@ -66,7 +66,7 @@ const formatDuration = (seconds: number) => {
 const getTableImage = (category: string) => {
     switch (category) {
         case "American Pool":
-            return { src: "https://picsum.photos/seed/pool/600/400", hint: "pool table" };
+            return { src: "https://images.unsplash.com/photo-1666193183128-6ec58995f672?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHw4JTIwYmFsbCUyMHBvb2x8ZW58MHx8fHwxNzU2NTQ4NjM5fDA&ixlib=rb-4.1.0&q=80&w=1080", hint: "pool table" };
         case "Mini Snooker":
             return { src: "https://picsum.photos/seed/snooker/600/400", hint: "snooker table" };
         case "Standard":
