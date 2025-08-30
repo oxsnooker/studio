@@ -243,6 +243,12 @@ export default function SessionPage() {
         });
     };
     
+    const isSplitPayMismatch = useMemo(() => {
+        if (selectedPaymentMethod !== 'Split Pay') return false;
+        const parsedCash = parseFloat(cashAmount) || 0;
+        const parsedUpi = parseFloat(upiAmount) || 0;
+        return Math.floor(parsedCash + parsedUpi) !== totalPayable;
+    }, [selectedPaymentMethod, cashAmount, upiAmount, totalPayable]);
 
     if (isLoading) {
         return (
@@ -461,34 +467,39 @@ export default function SessionPage() {
                                 </Button>
                              </div>
                              {selectedPaymentMethod === 'Split Pay' && (
-                                <div className="grid grid-cols-2 gap-4 mt-4 p-4 border rounded-md">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="cashAmount">Cash Amount</Label>
-                                        <Input
-                                            id="cashAmount"
-                                            type="number"
-                                            placeholder="0.00"
-                                            value={cashAmount}
-                                            onChange={(e) => setCashAmount(e.target.value)}
-                                        />
+                                <div className="grid grid-cols-1 gap-4 mt-4 p-4 border rounded-md">
+                                    <div className='grid grid-cols-2 gap-4'>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="cashAmount">Cash Amount</Label>
+                                            <Input
+                                                id="cashAmount"
+                                                type="number"
+                                                placeholder="0.00"
+                                                value={cashAmount}
+                                                onChange={(e) => setCashAmount(e.target.value)}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="upiAmount">UPI Amount</Label>
+                                            <Input
+                                                id="upiAmount"
+                                                type="number"
+                                                placeholder="0.00"
+                                                value={upiAmount}
+                                                onChange={(e) => setUpiAmount(e.target.value)}
+                                            />
+                                        </div>
                                     </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="upiAmount">UPI Amount</Label>
-                                        <Input
-                                            id="upiAmount"
-                                            type="number"
-                                            placeholder="0.00"
-                                            value={upiAmount}
-                                            onChange={(e) => setUpiAmount(e.target.value)}
-                                        />
-                                    </div>
+                                    {isSplitPayMismatch && (
+                                         <p className="text-xs text-center text-red-500">Cash and UPI amounts must sum to the total of ₹{totalPayable}.</p>
+                                    )}
                                 </div>
                              )}
                         </div>
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsBillDialogOpen(false)}>Cancel</Button>
-                        <Button className="bg-green-600 hover:bg-green-700" onClick={handleCompletePayment} disabled={!selectedPaymentMethod}>Settle Bill</Button>
+                        <Button className="bg-green-600 hover:bg-green-700" onClick={handleCompletePayment} disabled={!selectedPaymentMethod || isSplitPayMismatch}>Settle Bill</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
