@@ -32,10 +32,13 @@ import { Label } from "@/components/ui/label";
 import { getTables, addTable, updateTable, deleteTable } from "./actions";
 import { useToast } from "@/hooks/use-toast";
 import type { Table as TableType } from "@/lib/types";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Terminal } from "lucide-react";
 
 export default function TablesPage() {
   const [tables, setTables] = useState<TableType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTable, setEditingTable] = useState<TableType | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -44,9 +47,22 @@ export default function TablesPage() {
   useEffect(() => {
     const fetchTables = async () => {
       setIsLoading(true);
-      const fetchedTables = await getTables();
-      setTables(fetchedTables);
-      setIsLoading(false);
+      setError(null);
+      try {
+        const fetchedTables = await getTables();
+        setTables(fetchedTables);
+      } catch (e: any) {
+        if (e.code === 'failed-precondition') {
+            setError("Your Firestore database has not been created yet. Please go to the Firebase Console, select your 'cuebook' project, and create a Firestore database.");
+        } else if (e.code === 'permission-denied') {
+            setError("Your Firestore security rules are blocking access. For development, please go to the Firebase Console and set your rules to allow read/write access.");
+        } else {
+            setError("An unexpected error occurred while fetching data. Check the console for more details.");
+        }
+        console.error(e);
+      } finally {
+        setIsLoading(false);
+      }
     };
     fetchTables();
   }, []);
@@ -108,26 +124,27 @@ export default function TablesPage() {
     setEditingTable(null);
   };
 
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle>Table Management</CardTitle>
-          <CardDescription>
-            Add, edit, or delete tables and their hourly rates from the database.
-          </CardDescription>
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <div className="flex justify-center items-center h-48">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
-        <Button onClick={openAddDialog}>
-          <PlusCircle className="mr-2 h-4 w-4" /> Add Table
-        </Button>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="flex justify-center items-center h-48">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : (
-          <Table>
+      );
+    }
+
+    if (error) {
+        return (
+            <Alert variant="destructive">
+                <Terminal className="h-4 w-4" />
+                <AlertTitle>Connection Error</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+            </Alert>
+        )
+    }
+
+    return (
+       <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Table Name</TableHead>
@@ -158,7 +175,24 @@ export default function TablesPage() {
               ))}
             </TableBody>
           </Table>
-        )}
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle>Table Management</CardTitle>
+          <CardDescription>
+            Add, edit, or delete tables and their hourly rates from the database.
+          </CardDescription>
+        </div>
+        <Button onClick={openAddDialog}>
+          <PlusCircle className="mr-2 h-4 w-4" /> Add Table
+        </Button>
+      </CardHeader>
+      <CardContent>
+        {renderContent()}
       </CardContent>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
