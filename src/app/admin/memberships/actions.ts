@@ -13,6 +13,7 @@ const planSchema = z.object({
   description: z.string().optional(),
   price: z.coerce.number().min(0, 'Price must be a positive number.'),
   totalHours: z.coerce.number().min(1, 'Total hours must be at least 1.'),
+  color: z.string().optional(),
 });
 
 const memberSchema = z.object({
@@ -38,6 +39,7 @@ export async function addMembershipPlan(formData: FormData) {
     description: formData.get('description'),
     price: formData.get('price'),
     totalHours: formData.get('totalHours'),
+    color: formData.get('color'),
   });
   await addDoc(collection(db, 'membershipPlans'), parsed);
   revalidatePath('/admin/memberships');

@@ -43,6 +43,7 @@ export interface MembershipPlan {
   description?: string;
   price: number;
   totalHours: number;
+  color?: string;
 }
 
 export interface Member {

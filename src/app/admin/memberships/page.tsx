@@ -17,6 +17,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from "@/components/ui/card";
 import {
   getMembershipPlans,
@@ -43,6 +44,95 @@ import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
+
+const planColors = [
+  "#3b82f6", // blue-500
+  "#22c55e", // green-500
+  "#facc15", // yellow-400
+  "#a855f7", // purple-500
+  "#ec4899", // pink-500
+  "#6366f1", // indigo-500
+  "#ef4444", // red-500
+  "#64748b", // slate-500
+];
+
+function AddPlanForm({ onSave, onCancel }: { onSave: () => void; onCancel: () => void }) {
+  const [isPending, startTransition] = useTransition();
+  const { toast } = useToast();
+  const [selectedColor, setSelectedColor] = useState(planColors[0]);
+
+  const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    formData.set('color', selectedColor);
+
+    startTransition(async () => {
+      try {
+        const result = await addMembershipPlan(formData);
+        if (result.success) {
+          toast({ title: "Success", description: result.message });
+          onSave();
+        } else {
+          toast({ variant: "destructive", title: "Error", description: result.message });
+        }
+      } catch (err) {
+        toast({ variant: "destructive", title: "Error", description: "Failed to add plan." });
+      }
+    });
+  };
+
+  return (
+      <Card className="mb-6">
+          <form onSubmit={handleFormSubmit}>
+              <CardHeader>
+                  <CardTitle>Add New Membership Plan</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                  <div className="grid md:grid-cols-4 gap-4">
+                      <div className="space-y-2">
+                          <Label htmlFor="name">Plan Name</Label>
+                          <Input id="name" name="name" placeholder="e.g., Diamond" required />
+                      </div>
+                      <div className="space-y-2">
+                          <Label htmlFor="price">Price (₹)</Label>
+                          <Input id="price" name="price" type="number" placeholder="0" required />
+                      </div>
+                      <div className="space-y-2">
+                          <Label htmlFor="totalHours">Hours Included</Label>
+                          <Input id="totalHours" name="totalHours" type="number" placeholder="0" required />
+                      </div>
+                      <div className="space-y-2">
+                          <Label>Color</Label>
+                          <div className="flex items-center gap-2">
+                            {planColors.map(color => (
+                                <button
+                                    type="button"
+                                    key={color}
+                                    className={cn("w-7 h-7 rounded-full border-2", selectedColor === color ? 'border-primary' : 'border-transparent')}
+                                    style={{ backgroundColor: color }}
+                                    onClick={() => setSelectedColor(color)}
+                                />
+                            ))}
+                          </div>
+                      </div>
+                  </div>
+                  <div className="space-y-2">
+                      <Label htmlFor="description">Description</Label>
+                      <Textarea id="description" name="description" placeholder="Brief description" />
+                  </div>
+              </CardContent>
+              <CardFooter className="flex justify-end gap-2">
+                  <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>
+                  <Button type="submit" disabled={isPending}>
+                      {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Add Plan
+                  </Button>
+              </CardFooter>
+          </form>
+      </Card>
+  );
+}
 
 
 export default function MembershipsPage() {
@@ -53,7 +143,7 @@ export default function MembershipsPage() {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
-  const [isPlanDialogOpen, setIsPlanDialogOpen] = useState(false);
+  const [isAddingPlan, setIsAddingPlan] = useState(false);
   const [isMemberDialogOpen, setIsMemberDialogOpen] = useState(false);
 
   const fetchData = async () => {
@@ -77,25 +167,6 @@ export default function MembershipsPage() {
   useEffect(() => {
     fetchData();
   }, []);
-
-  const handlePlanFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    startTransition(async () => {
-      try {
-        const result = await addMembershipPlan(formData);
-        if (result.success) {
-          toast({ title: "Success", description: result.message });
-          await fetchData();
-          setIsPlanDialogOpen(false);
-        } else {
-          toast({ variant: "destructive", title: "Error", description: result.message });
-        }
-      } catch (err) {
-        toast({ variant: "destructive", title: "Error", description: "Failed to add plan." });
-      }
-    });
-  };
 
   const handleMemberFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -138,27 +209,27 @@ export default function MembershipsPage() {
 
   return (
     <>
-    <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold tracking-tight">Membership Management</h2>
-        <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setIsMemberDialogOpen(true)}>
-                <PlusCircle className="mr-2 h-4 w-4" /> Add Customer
-            </Button>
-            <Button onClick={() => setIsPlanDialogOpen(true)}>
-                <PlusCircle className="mr-2 h-4 w-4" /> Add New Plan
-            </Button>
-        </div>
-    </div>
     <Tabs defaultValue="plans">
-      <TabsList>
-          <TabsTrigger value="plans">Plans</TabsTrigger>
-          <TabsTrigger value="customers">Customers</TabsTrigger>
-      </TabsList>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-2xl font-bold tracking-tight">Membership Management</h2>
+        <div className="flex items-center gap-4">
+          <TabsList>
+              <TabsTrigger value="plans">Plans</TabsTrigger>
+              <TabsTrigger value="customers">Customers</TabsTrigger>
+          </TabsList>
+          <Button onClick={() => setIsAddingPlan(true)}>
+              <PlusCircle className="mr-2 h-4 w-4" /> Add New Plan
+          </Button>
+        </div>
+      </div>
+
+       {isAddingPlan && <AddPlanForm onSave={() => { setIsAddingPlan(false); fetchData(); }} onCancel={() => setIsAddingPlan(false)} />}
+      
       <TabsContent value="plans" className="mt-4">
         {renderLoadingError() || (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {plans.map((plan) => (
-                     <Card key={plan.id} className="flex flex-col">
+                     <Card key={plan.id} className="flex flex-col" style={{ borderTop: `4px solid ${plan.color || '#ccc'}`}}>
                         <CardHeader>
                             <div className="flex justify-between items-start">
                                 <div>
@@ -189,10 +260,17 @@ export default function MembershipsPage() {
       <TabsContent value="customers" className="mt-4">
         <Card>
           <CardHeader>
-            <CardTitle>Customer Memberships</CardTitle>
-            <CardDescription>
-              View and track active customer memberships.
-            </CardDescription>
+            <div className="flex justify-between items-center">
+              <div>
+                <CardTitle>Customer Memberships</CardTitle>
+                <CardDescription>
+                  View and track active customer memberships.
+                </CardDescription>
+              </div>
+               <Button variant="outline" onClick={() => setIsMemberDialogOpen(true)}>
+                  <PlusCircle className="mr-2 h-4 w-4" /> Add Customer
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
              {renderLoadingError() || (
@@ -230,38 +308,7 @@ export default function MembershipsPage() {
       </TabsContent>
     </Tabs>
 
-     {/* Add/Edit Plan Dialog */}
-      <Dialog open={isPlanDialogOpen} onOpenChange={setIsPlanDialogOpen}>
-        <DialogContent>
-          <form onSubmit={handlePlanFormSubmit}>
-            <DialogHeader>
-              <DialogTitle>Add New Membership Plan</DialogTitle>
-              <DialogDescription>
-                Enter the details for the new plan.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <Label htmlFor="name">Plan Name</Label>
-              <Input id="name" name="name" required />
-               <Label htmlFor="description">Description</Label>
-              <Textarea id="description" name="description" placeholder="e.g., Perfect for casual players" />
-              <Label htmlFor="price">Price (₹)</Label>
-              <Input id="price" name="price" type="number" required />
-              <Label htmlFor="totalHours">Total Hours</Label>
-              <Input id="totalHours" name="totalHours" type="number" required />
-            </div>
-            <DialogFooter>
-               <Button type="button" variant="outline" onClick={() => setIsPlanDialogOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={isPending}>
-                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Add Plan
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add/Edit Member Dialog */}
+      {/* Add Member Dialog */}
       <Dialog open={isMemberDialogOpen} onOpenChange={setIsMemberDialogOpen}>
         <DialogContent>
           <form onSubmit={handleMemberFormSubmit}>
