@@ -384,25 +384,19 @@ export default function SessionPage() {
     };
 
     const handleAddItem = useCallback((itemToAdd: MenuItem) => {
-        setSession(currentSession => {
-            if (!currentSession) return null;
-    
-            let newItems;
-            const existingItem = currentSession.items.find(item => item.id === itemToAdd.id);
-    
-            if (existingItem) {
-                newItems = currentSession.items.map(item => 
-                    item.id === itemToAdd.id ? { ...item, quantity: item.quantity + 1 } : item
-                );
-            } else {
-                newItems = [...currentSession.items, { ...itemToAdd, quantity: 1 }];
-            }
-    
-            const newSession = { ...currentSession, items: newItems };
-            updateSessionInStorage(newSession);
-            return newSession;
-        });
-    }, [tableId, updateSessionInStorage]);
+        if (!session) return;
+
+        const newSession = { ...session };
+        const existingItem = newSession.items.find(item => item.id === itemToAdd.id);
+
+        if (existingItem) {
+            existingItem.quantity += 1;
+        } else {
+            newSession.items.push({ ...itemToAdd, quantity: 1 });
+        }
+        
+        updateSessionInStorage(newSession);
+    }, [session, updateSessionInStorage]);
     
     const handleRemoveItem = useCallback((itemIdToRemove: string) => {
         setSession(currentSession => {
@@ -424,7 +418,7 @@ export default function SessionPage() {
             updateSessionInStorage(newSession);
             return newSession;
         });
-    }, [tableId, updateSessionInStorage]);
+    }, [updateSessionInStorage]);
     
     const isSplitPayMismatch = useMemo(() => {
         if (selectedPaymentMethod !== 'Split Pay') return false;
@@ -816,6 +810,8 @@ export default function SessionPage() {
         </div>
     );
 }
+
+    
 
     
 
