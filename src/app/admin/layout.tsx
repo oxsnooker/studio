@@ -11,10 +11,12 @@ import {
   Users,
   BarChart3,
   Package,
+  LogOut,
 } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 const navItems = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -52,6 +54,12 @@ export default function AdminLayout({
             <AvatarImage src="https://picsum.photos/100/100" data-ai-hint="male avatar" />
             <AvatarFallback>A</AvatarFallback>
           </Avatar>
+           <Button asChild variant="outline" size="icon">
+            <Link href="/">
+              <LogOut className="h-5 w-5" />
+              <span className="sr-only">Logout</span>
+            </Link>
+          </Button>
         </div>
       </header>
 
