@@ -26,12 +26,11 @@ import {
 } from "@/components/ui/table";
 import {
   DollarSign,
-  Clock,
-  Utensils,
-  ClipboardList,
   FileDown,
   Sheet as ExcelIcon,
   Wallet,
+  Smartphone,
+  Award,
 } from "lucide-react";
 import { getStaff } from "../staff/actions";
 import type { Staff } from "@/lib/types";
@@ -60,11 +59,10 @@ export default function ReportsPage() {
 
   // Placeholder data - replace with real data fetching and logic
   const reportData = {
-    totalRevenue: 0,
-    tableRevenue: 0,
-    itemsRevenue: 0,
-    transactions: 0,
-    avgBillValue: 0,
+    totalCash: 0,
+    totalUpi: 0,
+    totalMembership: 0,
+    grandTotal: 0,
     tablePerformance: [],
     itemSales: [],
   };
@@ -125,71 +123,60 @@ export default function ReportsPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Total Revenue
+              Total Cash
             </CardTitle>
             <div className="p-2 bg-green-100 rounded-full">
-              <DollarSign className="h-4 w-4 text-green-600" />
+              <Wallet className="h-4 w-4 text-green-600" />
             </div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ₹{reportData.totalRevenue.toFixed(2)}
+              ₹{reportData.totalCash.toFixed(2)}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Table Revenue
+              Total UPI
             </CardTitle>
             <div className="p-2 bg-blue-100 rounded-full">
-              <Clock className="h-4 w-4 text-blue-600" />
+              <Smartphone className="h-4 w-4 text-blue-600" />
             </div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ₹{reportData.tableRevenue.toFixed(2)}
+              ₹{reportData.totalUpi.toFixed(2)}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Items Revenue</CardTitle>
-            <div className="p-2 bg-orange-100 rounded-full">
-              <Utensils className="h-4 w-4 text-orange-600" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              ₹{reportData.itemsRevenue.toFixed(2)}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Transactions</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Membership</CardTitle>
             <div className="p-2 bg-purple-100 rounded-full">
-              <ClipboardList className="h-4 w-4 text-purple-600" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{reportData.transactions}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Bill Value</CardTitle>
-            <div className="p-2 bg-pink-100 rounded-full">
-              <Wallet className="h-4 w-4 text-pink-600" />
+              <Award className="h-4 w-4 text-purple-600" />
             </div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ₹{reportData.avgBillValue.toFixed(2)}
+              ₹{reportData.totalMembership.toFixed(2)}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Grand Total</CardTitle>
+            <div className="p-2 bg-orange-100 rounded-full">
+              <DollarSign className="h-4 w-4 text-orange-600" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              ₹{reportData.grandTotal.toFixed(2)}
             </div>
           </CardContent>
         </Card>
