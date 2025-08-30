@@ -34,7 +34,6 @@ import {
   Award,
   Loader2,
   Terminal,
-  Split,
   RefreshCw,
 } from "lucide-react";
 import { getStaff } from "../staff/actions";
@@ -53,7 +52,10 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
     AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog";
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 
 type ReportData = {
@@ -139,7 +141,7 @@ export default function ReportsPage() {
 
             transactions.forEach(tx => {
                 grandTotal += tx.totalAmount;
-                if (tx.paymentMethod === 'Cash') {
+                 if (tx.paymentMethod === 'Cash') {
                   totalCash += tx.totalAmount;
                 } else if (tx.paymentMethod === 'UPI') {
                   totalUpi += tx.totalAmount;
@@ -188,6 +190,98 @@ export default function ReportsPage() {
       fetchTransactions();
   }, []);
 
+  const handleExportPdf = () => {
+    const doc = new jsPDF();
+    const today = new Date().toLocaleDateString('en-GB');
+
+    // Title
+    doc.setFontSize(18);
+    doc.text("Sales Report", 14, 22);
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+    doc.text(`Date: ${today}`, 14, 29);
+
+    // Summary Cards
+    autoTable(doc, {
+        body: [
+            ['Total Cash', `₹${reportData.totalCash.toFixed(2)}`],
+            ['Total UPI', `₹${reportData.totalUpi.toFixed(2)}`],
+            ['Total Membership', `₹${reportData.totalMembership.toFixed(2)}`],
+            ['Grand Total', `₹${reportData.grandTotal.toFixed(2)}`],
+        ],
+        startY: 35,
+        theme: 'grid',
+        styles: { fontSize: 10, cellPadding: 2 },
+        headStyles: { fillColor: [41, 128, 185] }
+    });
+
+    const finalY = (doc as any).lastAutoTable.finalY || 70;
+
+    // Table Performance
+    doc.setFontSize(14);
+    doc.text("Table Performance", 14, finalY + 15);
+    autoTable(doc, {
+      head: [['Table', 'Sessions', 'Hours', 'Revenue']],
+      body: reportData.tablePerformance.map(t => [t.name, t.sessions, t.hours.toFixed(1), `₹${t.revenue.toFixed(2)}`]),
+      startY: finalY + 20,
+      theme: 'striped',
+    });
+
+    const finalY2 = (doc as any).lastAutoTable.finalY || 120;
+
+    // Item Sales
+    doc.setFontSize(14);
+    doc.text("Item Sales", 14, finalY2 + 15);
+    autoTable(doc, {
+        head: [['Item', 'Quantity', 'Revenue']],
+        body: reportData.itemSales.map(i => [i.name, i.quantity, `₹${i.revenue.toFixed(2)}`]),
+        startY: finalY2 + 20,
+        theme: 'striped',
+    });
+
+
+    doc.save(`sales_report_${today.replace(/\//g, '-')}.pdf`);
+    toast({ title: 'Success', description: 'PDF report downloaded.' });
+  }
+
+  const handleExportExcel = () => {
+    const wb = XLSX.utils.book_new();
+    
+    // Summary Sheet
+    const summaryData = [
+        ["Category", "Amount"],
+        ["Total Cash", reportData.totalCash.toFixed(2)],
+        ["Total UPI", reportData.totalUpi.toFixed(2)],
+        ["Total Membership", reportData.totalMembership.toFixed(2)],
+        ["Grand Total", reportData.grandTotal.toFixed(2)],
+    ];
+    const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, wsSummary, "Summary");
+
+    // Table Performance Sheet
+    const tableData = reportData.tablePerformance.map(t => ({
+        Table: t.name,
+        Sessions: t.sessions,
+        Hours: t.hours.toFixed(1),
+        Revenue: t.revenue.toFixed(2),
+    }));
+    const wsTable = XLSX.utils.json_to_sheet(tableData);
+    XLSX.utils.book_append_sheet(wb, wsTable, "Table Performance");
+
+    // Item Sales Sheet
+    const itemData = reportData.itemSales.map(i => ({
+        Item: i.name,
+        Quantity: i.quantity,
+        Revenue: i.revenue.toFixed(2),
+    }));
+    const wsItem = XLSX.utils.json_to_sheet(itemData);
+    XLSX.utils.book_append_sheet(wb, wsItem, "Item Sales");
+    
+    const today = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
+    XLSX.writeFile(wb, `sales_report_${today}.xlsx`);
+    toast({ title: 'Success', description: 'Excel report downloaded.' });
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -213,11 +307,11 @@ export default function ReportsPage() {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
-          <Button variant="destructive" className="bg-red-600 hover:bg-red-700">
+          <Button variant="destructive" className="bg-red-600 hover:bg-red-700" onClick={handleExportPdf} disabled={isLoading || !!error}>
             <FileDown className="mr-2 h-4 w-4" />
             Export PDF
           </Button>
-          <Button className="bg-green-600 hover:bg-green-700">
+          <Button className="bg-green-600 hover:bg-green-700" onClick={handleExportExcel} disabled={isLoading || !!error}>
             <ExcelIcon className="mr-2 h-4 w-4" />
             Export Excel
           </Button>
