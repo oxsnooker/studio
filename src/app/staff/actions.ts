@@ -1,7 +1,7 @@
 
 'use server';
 
-import { doc, getDoc, collection, addDoc, writeBatch, runTransaction } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, runTransaction } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Table, Transaction, MenuItem as MenuItemType } from '@/lib/types';
 import { getMenuItems as getAllMenuItems } from '@/app/admin/menu/actions';
@@ -41,7 +41,11 @@ export async function saveTransaction(transactionData: Transaction) {
                         const currentStock = itemDoc.data().stock || 0;
                         const newStock = Math.max(0, currentStock - item.quantity);
                         firestoreTransaction.update(itemRef, { stock: newStock });
+                    } else {
+                        console.warn(`Menu item with ID ${item.id} not found during transaction, stock not updated.`);
                     }
+                } else {
+                    console.error('An item without an ID was part of a transaction.', item);
                 }
             }
         });
@@ -56,6 +60,6 @@ export async function saveTransaction(transactionData: Transaction) {
 
     } catch (error) {
         console.error("Error saving transaction:", error);
-        return { success: false, message: "Failed to save transaction." };
+        return { success: false, message: "Failed to save transaction due to a server error." };
     }
 }
