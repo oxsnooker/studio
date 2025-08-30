@@ -20,6 +20,7 @@ const memberSchema = z.object({
   name: z.string().min(1, 'Customer name is required.'),
   planId: z.string().min(1, 'A membership plan must be selected.'),
   mobileNumber: z.string().optional(),
+  validityDate: z.coerce.date().optional(),
 });
 
 
@@ -66,17 +67,21 @@ export async function addMember(formData: FormData) {
   if (!selectedPlan) {
     return { success: false, message: 'Invalid plan selected.' };
   }
-
+  
   const parsed = memberSchema.parse({
     name: formData.get('name'),
     planId: selectedPlanId,
     mobileNumber: formData.get('mobileNumber'),
+    validityDate: formData.get('validityDate') ? new Date(formData.get('validityDate') as string) : undefined,
   });
 
 
   const data = {
-      ...parsed,
+      name: parsed.name,
+      planId: parsed.planId,
+      mobileNumber: parsed.mobileNumber,
       remainingHours: selectedPlan.totalHours,
+      validityDate: parsed.validityDate ? parsed.validityDate.getTime() : undefined,
   };
 
   await addDoc(collection(db, 'members'), data);

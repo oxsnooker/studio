@@ -74,4 +74,5 @@ export interface Member {
   planId: string;
   remainingHours: number;
   mobileNumber?: string;
+  validityDate?: number; // Expiration timestamp
 }

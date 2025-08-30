@@ -28,7 +28,7 @@ import {
 import type { MembershipPlan, Member } from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { Loader2, PlusCircle, Terminal, Crown } from "lucide-react";
+import { Loader2, PlusCircle, Terminal, Crown, Calendar as CalendarIcon } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -44,6 +44,10 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+
 
 const planColors = [
   "#3b82f6", // blue-500
@@ -144,6 +148,7 @@ export default function MembershipsPage() {
 
   const [isAddingPlan, setIsAddingPlan] = useState(false);
   const [isMemberDialogOpen, setIsMemberDialogOpen] = useState(false);
+  const [validityDate, setValidityDate] = useState<Date | undefined>();
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -170,6 +175,9 @@ export default function MembershipsPage() {
   const handleMemberFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
+    if (validityDate) {
+        formData.set('validityDate', validityDate.toISOString());
+    }
     startTransition(async () => {
       try {
         const result = await addMember(formData);
@@ -177,6 +185,7 @@ export default function MembershipsPage() {
           toast({ title: "Success", description: result.message });
           await fetchData();
           setIsMemberDialogOpen(false);
+          setValidityDate(undefined);
         } else {
           toast({ variant: "destructive", title: "Error", description: result.message });
         }
@@ -279,6 +288,7 @@ export default function MembershipsPage() {
                     <TableHead>Customer Name</TableHead>
                     <TableHead>Mobile Number</TableHead>
                     <TableHead>Plan</TableHead>
+                    <TableHead>Validity Date</TableHead>
                     <TableHead>Remaining Hours</TableHead>
                     <TableHead className="w-[200px]">Usage</TableHead>
                   </TableRow>
@@ -294,6 +304,9 @@ export default function MembershipsPage() {
                         <TableCell className="font-medium">{member.name}</TableCell>
                         <TableCell>{member.mobileNumber || 'N/A'}</TableCell>
                         <TableCell>{plan?.name || 'Unknown Plan'}</TableCell>
+                        <TableCell>
+                          {member.validityDate ? format(new Date(member.validityDate), "PPP") : 'N/A'}
+                        </TableCell>
                         <TableCell>{member.remainingHours.toFixed(1)} / {plan?.totalHours || '?'} hrs</TableCell>
                         <TableCell>
                           <Progress value={usagePercentage} className="w-full" />
@@ -316,7 +329,7 @@ export default function MembershipsPage() {
             <DialogHeader>
               <DialogTitle>Add New Member</DialogTitle>
               <DialogDescription>
-                Enter the customer's name and select a membership plan.
+                Enter the customer's details and select a membership plan.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -341,9 +354,34 @@ export default function MembershipsPage() {
                   </SelectContent>
                 </Select>
               </div>
+               <div className="space-y-2">
+                    <Label htmlFor="validityDate">Validity Date</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !validityDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {validityDate ? format(validityDate, "PPP") : <span>Pick a date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={validityDate}
+                          onSelect={setValidityDate}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+              </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsMemberDialogOpen(false)}>Cancel</Button>
+              <Button type="button" variant="outline" onClick={() => {setIsMemberDialogOpen(false); setValidityDate(undefined)}}>Cancel</Button>
               <Button type="submit" disabled={isPending || plans.length === 0}>
                 {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Add Member
