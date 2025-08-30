@@ -4,8 +4,8 @@
 import { useState, useEffect, useMemo, useCallback, useTransition } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { getTableById, getMenuItems } from '@/app/staff/actions';
-import type { Table as TableType, MenuItem, ActiveSession, Transaction } from '@/lib/types';
+import { getTableById, getMenuItems, saveTransaction } from '@/app/staff/actions';
+import type { Table as TableType, MenuItem, ActiveSession, Transaction, OrderItem } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -193,6 +193,12 @@ export default function SessionPage() {
             toast({ variant: "destructive", title: "Error", description: "Payment method or session data is missing." });
             return;
         }
+        
+        const startTimeDate = new Date(session.startTime);
+        if (isNaN(startTimeDate.getTime())) {
+            toast({ variant: "destructive", title: "Error", description: "Invalid session start time." });
+            return;
+        }
 
         if (selectedPaymentMethod === 'Split Pay') {
             const parsedCash = parseFloat(cashAmount) || 0;
@@ -203,11 +209,31 @@ export default function SessionPage() {
             }
         }
         
-        startTransition(() => {
-            // Transaction logic removed.
-            updateSessionInStorage(null);
-            toast({ title: 'Success', description: `Bill settled with ${selectedPaymentMethod}.` });
-            router.push('/staff');
+        startTransition(async () => {
+            const transaction: Transaction = {
+                tableId: table.id,
+                tableName: table.name,
+                startTime: startTimeDate.getTime(),
+                endTime: new Date().getTime(),
+                durationSeconds: session.elapsedSeconds,
+                tableCost: parseFloat(tableCost.toFixed(2)),
+                itemsCost: parseFloat(itemsCost.toFixed(2)),
+                totalAmount: totalPayable,
+                paymentMethod: selectedPaymentMethod,
+                items: session.items.map(item => ({...item})), // Create a clean copy
+                customerName: session.customerName,
+                createdAt: Date.now()
+            };
+            
+            const result = await saveTransaction(transaction);
+
+            if (result.success) {
+                updateSessionInStorage(null);
+                toast({ title: 'Success', description: `Bill settled with ${selectedPaymentMethod}.` });
+                router.push('/staff');
+            } else {
+                toast({ variant: "destructive", title: "Save Error", description: result.message });
+            }
         });
     };
 
@@ -215,16 +241,17 @@ export default function SessionPage() {
         setSession(currentSession => {
           if (!currentSession) return null;
           
-          const newItems = [...currentSession.items];
-          const existingItemIndex = newItems.findIndex(item => item.id === itemToAdd.id);
+          let newItems: OrderItem[];
+          const existingItemIndex = currentSession.items.findIndex(item => item.id === itemToAdd.id);
 
           if (existingItemIndex > -1) {
-            newItems[existingItemIndex] = {
-              ...newItems[existingItemIndex],
-              quantity: newItems[existingItemIndex].quantity + 1,
-            };
+            newItems = currentSession.items.map((item, index) => 
+                index === existingItemIndex 
+                ? { ...item, quantity: item.quantity + 1 }
+                : item
+            );
           } else {
-            newItems.push({ ...itemToAdd, quantity: 1 });
+            newItems = [...currentSession.items, { ...itemToAdd, quantity: 1 }];
           }
 
           const newSession = { ...currentSession, items: newItems };
@@ -279,7 +306,7 @@ export default function SessionPage() {
 
     return (
         <div className="p-4 md:p-6 lg:p-8">
-            <Link href="/staff" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4">
+            <Link href="/staff" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4 no-print">
                 <ArrowLeft className="h-4 w-4" />
                 Back to Tables
             </Link>
@@ -293,7 +320,7 @@ export default function SessionPage() {
                                 <CardTitle className="text-lg">{table.name}</CardTitle>
                                 <p className="text-sm text-muted-foreground">{table.category} Table</p>
                             </div>
-                            {session && <Badge className={session.status === 'running' ? 'bg-green-500' : session.status === 'paused' ? 'bg-yellow-500' : 'bg-red-500'}>{session.status.charAt(0).toUpperCase() + session.status.slice(1)}</Badge>}
+                            {session && <Badge className={cn("no-print", session.status === 'running' ? 'bg-green-500' : session.status === 'paused' ? 'bg-yellow-500' : 'bg-red-500')}>{session.status.charAt(0).toUpperCase() + session.status.slice(1)}</Badge>}
                         </CardHeader>
                         <CardContent>
                            {session ? (
@@ -325,7 +352,7 @@ export default function SessionPage() {
                            )}
                         </CardContent>
                          {session ? (
-                             <CardFooter className="grid grid-cols-3 gap-2">
+                             <CardFooter className="grid grid-cols-3 gap-2 no-print">
                                <Button onClick={sessionStatus === 'running' ? handlePause : handleResume} disabled={sessionStatus === 'idle' || sessionStatus === 'stopped'} variant="outline">
                                     {sessionStatus === 'running' ? <Pause className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
                                     {sessionStatus === 'running' ? 'Pause' : 'Resume'}
@@ -333,7 +360,7 @@ export default function SessionPage() {
                                <Button onClick={handleStop} disabled={sessionStatus !== 'running' && sessionStatus !== 'paused'} variant="destructive" className="col-span-2">Stop</Button>
                              </CardFooter>
                          ) : (
-                             <CardFooter>
+                             <CardFooter className="no-print">
                                 <Button onClick={handleStart} className="w-full bg-green-600 hover:bg-green-700">
                                     <Play className="mr-2 h-4 w-4" /> Start New Session
                                 </Button>
@@ -366,7 +393,7 @@ export default function SessionPage() {
                                             <p className="font-medium">{item.name}</p>
                                             <p className="text-xs text-muted-foreground">{item.category} - ₹{item.price.toFixed(2)}</p>
                                         </div>
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 no-print">
                                             <Button variant="outline" size="icon" className="h-7 w-7 rounded-full bg-red-100 text-red-600 hover:bg-red-200" onClick={() => handleRemoveItem(item.id!)} disabled={!session}>
                                                 <Minus className="h-4 w-4" />
                                             </Button>
@@ -424,7 +451,7 @@ export default function SessionPage() {
                                  </div>
                             </div>
                         </CardContent>
-                        <CardFooter className="flex-col items-stretch space-y-2">
+                        <CardFooter className="flex-col items-stretch space-y-2 no-print">
                             <div className="bg-green-50 text-green-800 p-4 rounded-lg flex justify-between items-center">
                                 <span className="text-lg font-bold">Total Payable:</span>
                                 <span className="text-2xl font-bold">₹{totalPayable}</span>
