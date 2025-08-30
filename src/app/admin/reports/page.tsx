@@ -47,7 +47,6 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 type ReportData = {
     totalCash: number;
     totalUpi: number;
-    totalSplit: number;
     totalMembership: number;
     grandTotal: number;
     tablePerformance: { name: string; sessions: number; hours: number; revenue: number }[];
@@ -64,7 +63,6 @@ export default function ReportsPage() {
   const [reportData, setReportData] = useState<ReportData>({
     totalCash: 0,
     totalUpi: 0,
-    totalSplit: 0,
     totalMembership: 0,
     grandTotal: 0,
     tablePerformance: [],
@@ -112,7 +110,6 @@ export default function ReportsPage() {
             // Compute aggregations
             let totalCash = 0;
             let totalUpi = 0;
-            let totalSplit = 0;
             let totalMembership = 0;
             let grandTotal = 0;
             const tablePerf: Record<string, { sessions: number, hours: number, revenue: number }> = {};
@@ -120,14 +117,16 @@ export default function ReportsPage() {
 
             transactions.forEach(tx => {
                 grandTotal += tx.totalAmount;
-                if (tx.paymentMethod === 'Cash') totalCash += tx.totalAmount;
-                else if (tx.paymentMethod === 'UPI') totalUpi += tx.totalAmount;
-                else if (tx.paymentMethod === 'Split Pay') {
-                    totalSplit += tx.totalAmount;
+                if (tx.paymentMethod === 'Cash') {
+                  totalCash += tx.totalAmount;
+                } else if (tx.paymentMethod === 'UPI') {
+                  totalUpi += tx.totalAmount;
+                } else if (tx.paymentMethod === 'Split Pay') {
                     totalCash += tx.cashAmount || 0;
                     totalUpi += tx.upiAmount || 0;
+                } else if (tx.paymentMethod === 'Membership') {
+                  totalMembership += tx.totalAmount;
                 }
-                else if (tx.paymentMethod === 'Membership') totalMembership += tx.totalAmount;
 
                 // Table performance
                 if (!tablePerf[tx.tableName]) {
@@ -150,7 +149,6 @@ export default function ReportsPage() {
             setReportData({
                 totalCash,
                 totalUpi,
-                totalSplit,
                 totalMembership,
                 grandTotal,
                 tablePerformance: Object.entries(tablePerf).map(([name, data]) => ({ name, ...data })).sort((a,b) => b.revenue - a.revenue),
@@ -371,4 +369,3 @@ export default function ReportsPage() {
 }
 
     
-
