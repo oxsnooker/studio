@@ -41,6 +41,8 @@ export interface Transaction {
     itemsCost: number;
     totalAmount: number;
     paymentMethod: string;
+    cashAmount?: number; // For Split Pay
+    upiAmount?: number; // For Split Pay
     items: OrderItem[];
     customerName: string;
     createdAt: number; // Use number (timestamp) for Firestore

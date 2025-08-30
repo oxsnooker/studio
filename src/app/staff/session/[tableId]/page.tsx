@@ -224,9 +224,10 @@ export default function SessionPage() {
             return;
         }
 
+        const parsedCash = parseFloat(cashAmount) || 0;
+        const parsedUpi = parseFloat(upiAmount) || 0;
+
         if (selectedPaymentMethod === 'Split Pay') {
-            const parsedCash = parseFloat(cashAmount) || 0;
-            const parsedUpi = parseFloat(upiAmount) || 0;
             if (Math.floor(parsedCash + parsedUpi) !== totalPayable) {
                 toast({ variant: "destructive", title: "Error", description: `Split payment amounts (₹${(parsedCash + parsedUpi).toFixed(2)}) must add up to the total payable (₹${totalPayable}).` });
                 return;
@@ -243,6 +244,8 @@ export default function SessionPage() {
             itemsCost: parseFloat(itemsCost.toFixed(2)),
             totalAmount: totalPayable,
             paymentMethod: selectedPaymentMethod,
+            cashAmount: selectedPaymentMethod === 'Split Pay' ? parsedCash : undefined,
+            upiAmount: selectedPaymentMethod === 'Split Pay' ? parsedUpi : undefined,
             items: session.items.map(item => ({...item})), // Create a clean copy
             customerName: selectedMember ? selectedMember.name : session.customerName,
             createdAt: Date.now()
@@ -290,7 +293,7 @@ export default function SessionPage() {
             updateSessionInStorage(newSession);
             return newSession;
         });
-    }, [tableId]);
+    }, [tableId, updateSessionInStorage]);
     
     const handleRemoveItem = useCallback((itemIdToRemove: string) => {
         setSession(currentSession => {
@@ -312,7 +315,7 @@ export default function SessionPage() {
             updateSessionInStorage(newSession);
             return newSession;
         });
-    }, [tableId]);
+    }, [tableId, updateSessionInStorage]);
     
     const isSplitPayMismatch = useMemo(() => {
         if (selectedPaymentMethod !== 'Split Pay') return false;

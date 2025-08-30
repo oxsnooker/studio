@@ -34,6 +34,7 @@ import {
   Award,
   Loader2,
   Terminal,
+  Split,
 } from "lucide-react";
 import { getStaff } from "../staff/actions";
 import type { Staff, Transaction } from "@/lib/types";
@@ -121,7 +122,11 @@ export default function ReportsPage() {
                 grandTotal += tx.totalAmount;
                 if (tx.paymentMethod === 'Cash') totalCash += tx.totalAmount;
                 else if (tx.paymentMethod === 'UPI') totalUpi += tx.totalAmount;
-                else if (tx.paymentMethod === 'Split Pay') totalSplit += tx.totalAmount;
+                else if (tx.paymentMethod === 'Split Pay') {
+                    totalSplit += tx.totalAmount;
+                    totalCash += tx.cashAmount || 0;
+                    totalUpi += tx.upiAmount || 0;
+                }
                 else if (tx.paymentMethod === 'Membership') totalMembership += tx.totalAmount;
 
                 // Table performance
@@ -232,7 +237,7 @@ export default function ReportsPage() {
         </Alert>
       ) : (
         <>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
                 <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">
@@ -260,6 +265,19 @@ export default function ReportsPage() {
                 <CardContent>
                     <div className="text-2xl font-bold">
                     ₹{reportData.totalUpi.toFixed(2)}
+                    </div>
+                </CardContent>
+                </Card>
+                 <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total Split Pay</CardTitle>
+                    <div className="p-2 bg-yellow-100 rounded-full">
+                    <Split className="h-4 w-4 text-yellow-600" />
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold">
+                    ₹{reportData.totalSplit.toFixed(2)}
                     </div>
                 </CardContent>
                 </Card>
