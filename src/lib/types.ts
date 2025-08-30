@@ -1,4 +1,5 @@
 
+
 export interface Table {
   id: string;
   name: string;
@@ -22,6 +23,10 @@ export interface ActiveSession {
   startTime: Date;
   elapsedSeconds: number;
   items: OrderItem[];
+  status: 'running' | 'paused' | 'stopped';
+  pauseTime?: Date;
+  totalPauseDuration: number;
+  customerName: string;
 }
 
 export interface Admin {
@@ -53,3 +58,5 @@ export interface Member {
   remainingHours: number;
   mobileNumber?: string;
 }
+
+    
