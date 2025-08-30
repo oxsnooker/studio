@@ -73,7 +73,7 @@ export default function AdminLayout({
             ))}
             </div>
         </nav>
-        <main className="flex-1 p-4 md:p-6 bg-background sm:rounded-tl-xl sm:border-l sm:border-t">
+        <main className="flex-1 p-4 md:p-6 sm:rounded-tl-xl sm:border-l sm:border-t">
             {children}
         </main>
       </div>
