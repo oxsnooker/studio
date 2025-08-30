@@ -34,6 +34,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { Table as TableType } from "@/lib/types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function TablesPage() {
   const [tables, setTables] = useState<TableType[]>([]);
@@ -219,7 +220,16 @@ export default function TablesPage() {
                 <Label htmlFor="category" className="text-right">
                   Category
                 </Label>
-                <Input id="category" name="category" defaultValue={editingTable?.category || ""} className="col-span-3" required />
+                <Select name="category" defaultValue={editingTable?.category} required>
+                    <SelectTrigger className="col-span-3">
+                        <SelectValue placeholder="Select a category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="American Pool">American Pool</SelectItem>
+                        <SelectItem value="Mini Snooker">Mini Snooker</SelectItem>
+                        <SelectItem value="Standard">Standard</SelectItem>
+                    </SelectContent>
+                </Select>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="rate" className="text-right">
