@@ -134,6 +134,12 @@ export default function StaffPage() {
             </Alert>
         )
     }
+    
+    if (staff.length === 0) {
+        return (
+             <p className="text-center text-muted-foreground pt-10 pb-10">No staff members have been added yet.</p>
+        )
+    }
 
     return (
        <Table>

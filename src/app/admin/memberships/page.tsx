@@ -262,34 +262,42 @@ export default function MembershipsPage() {
       
       <TabsContent value="plans" className="mt-4">
         {renderLoadingError() || (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {plans.map((plan) => (
-                     <Card key={plan.id} className="flex flex-col" style={{ borderTop: `4px solid ${plan.color || '#ccc'}`}}>
-                        <CardHeader>
-                            <div className="flex justify-between items-start">
+            plans.length === 0 ? (
+                 <Card>
+                    <CardContent className="pt-6">
+                        <p className="text-center text-muted-foreground">No membership plans created yet.</p>
+                    </CardContent>
+                </Card>
+            ) : (
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                    {plans.map((plan) => (
+                        <Card key={plan.id} className="flex flex-col" style={{ borderTop: `4px solid ${plan.color || '#ccc'}`}}>
+                            <CardHeader>
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <CardTitle className="text-2xl">{plan.name}</CardTitle>
+                                        <CardDescription>{plan.description}</CardDescription>
+                                    </div>
+                                    <div className="p-3 bg-muted rounded-full">
+                                        <Crown className="h-6 w-6 text-muted-foreground" />
+                                    </div>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="flex-1" />
+                            <CardFooter className="flex justify-between items-end">
                                 <div>
-                                    <CardTitle className="text-2xl">{plan.name}</CardTitle>
-                                    <CardDescription>{plan.description}</CardDescription>
+                                    <p className="text-sm text-muted-foreground">Price</p>
+                                    <p className="text-3xl font-bold">₹{plan.price.toLocaleString()}</p>
                                 </div>
-                                <div className="p-3 bg-muted rounded-full">
-                                    <Crown className="h-6 w-6 text-muted-foreground" />
+                                <div>
+                                    <p className="text-sm text-muted-foreground">Hours</p>
+                                    <p className="text-3xl font-bold">{plan.totalHours} hrs</p>
                                 </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="flex-1" />
-                        <CardFooter className="flex justify-between items-end">
-                            <div>
-                                <p className="text-sm text-muted-foreground">Price</p>
-                                <p className="text-3xl font-bold">₹{plan.price.toLocaleString()}</p>
-                            </div>
-                             <div>
-                                <p className="text-sm text-muted-foreground">Hours</p>
-                                <p className="text-3xl font-bold">{plan.totalHours} hrs</p>
-                            </div>
-                        </CardFooter>
-                    </Card>
-                ))}
-            </div>
+                            </CardFooter>
+                        </Card>
+                    ))}
+                </div>
+            )
         )}
       </TabsContent>
       <TabsContent value="customers" className="mt-4">
@@ -309,46 +317,50 @@ export default function MembershipsPage() {
           </CardHeader>
           <CardContent>
              {renderLoadingError() || (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Customer Name</TableHead>
-                    <TableHead>Mobile Number</TableHead>
-                    <TableHead>Plan</TableHead>
-                    <TableHead>Validity Date</TableHead>
-                    <TableHead>Remaining Hours</TableHead>
-                    <TableHead className="w-[200px]">Usage</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {members.map((member) => {
-                    const plan = plans.find((p) => p.id === member.planId);
-                    if (!plan) return null;
-                    const usagePercentage =
-                      (member.remainingHours / plan.totalHours) * 100;
-                    return (
-                      <TableRow key={member.id}>
-                        <TableCell className="font-medium">{member.name}</TableCell>
-                        <TableCell>{member.mobileNumber || 'N/A'}</TableCell>
-                        <TableCell>{plan?.name || 'Unknown Plan'}</TableCell>
-                        <TableCell>
-                          {member.validityDate ? format(new Date(member.validityDate), "PPP") : 'N/A'}
-                        </TableCell>
-                        <TableCell>{member.remainingHours.toFixed(1)} / {plan?.totalHours || '?'} hrs</TableCell>
-                        <TableCell>
-                          <Progress value={usagePercentage} className="w-full" />
-                        </TableCell>
-                         <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" onClick={() => openEditMemberDialog(member)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+              members.length === 0 ? (
+                <p className="text-center text-muted-foreground pt-10 pb-10">No members added yet.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Customer Name</TableHead>
+                      <TableHead>Mobile Number</TableHead>
+                      <TableHead>Plan</TableHead>
+                      <TableHead>Validity Date</TableHead>
+                      <TableHead>Remaining Hours</TableHead>
+                      <TableHead className="w-[200px]">Usage</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {members.map((member) => {
+                      const plan = plans.find((p) => p.id === member.planId);
+                      if (!plan) return null;
+                      const usagePercentage =
+                        (member.remainingHours / plan.totalHours) * 100;
+                      return (
+                        <TableRow key={member.id}>
+                          <TableCell className="font-medium">{member.name}</TableCell>
+                          <TableCell>{member.mobileNumber || 'N/A'}</TableCell>
+                          <TableCell>{plan?.name || 'Unknown Plan'}</TableCell>
+                          <TableCell>
+                            {member.validityDate ? format(new Date(member.validityDate), "PPP") : 'N/A'}
+                          </TableCell>
+                          <TableCell>{member.remainingHours.toFixed(1)} / {plan?.totalHours || '?'} hrs</TableCell>
+                          <TableCell>
+                            <Progress value={usagePercentage} className="w-full" />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button variant="ghost" size="icon" onClick={() => openEditMemberDialog(member)}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )
             )}
           </CardContent>
         </Card>

@@ -45,20 +45,21 @@ export default function MenuPage() {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
+  const fetchItems = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const fetchedItems = await getMenuItems();
+      setMenuItems(fetchedItems);
+    } catch (e: any) {
+      setError("An error occurred while fetching menu items. Please ensure your Firestore database is set up correctly and security rules allow access.");
+      console.error(e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchItems = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const fetchedItems = await getMenuItems();
-        setMenuItems(fetchedItems);
-      } catch (e: any) {
-        setError("An error occurred while fetching menu items. Please ensure your Firestore database is set up correctly and security rules allow access.");
-        console.error(e);
-      } finally {
-        setIsLoading(false);
-      }
-    };
     fetchItems();
   }, []);
 
@@ -75,8 +76,7 @@ export default function MenuPage() {
         const result = await action(formData);
         if (result.success) {
           toast({ title: "Success", description: result.message });
-          const fetchedItems = await getMenuItems();
-          setMenuItems(fetchedItems);
+          await fetchItems();
           closeDialog();
         } else {
           toast({ variant: "destructive", title: "Error", description: result.message });
@@ -93,8 +93,7 @@ export default function MenuPage() {
         const result = await deleteMenuItem(id);
         if (result.success) {
           toast({ title: "Success", description: result.message });
-          const fetchedItems = await getMenuItems();
-          setMenuItems(fetchedItems);
+          await fetchItems();
         } else {
           toast({ variant: "destructive", title: "Error", description: result.message });
         }

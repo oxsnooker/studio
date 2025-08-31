@@ -53,7 +53,7 @@ export default function StockPage() {
       setIsLoading(false);
     }
   };
-
+  
   useEffect(() => {
     fetchItems();
   }, []);

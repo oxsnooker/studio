@@ -45,26 +45,27 @@ export default function TablesPage() {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
-  useEffect(() => {
-    const fetchTables = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const fetchedTables = await getTables();
-        setTables(fetchedTables);
-      } catch (e: any) {
-        if (e.code === 'failed-precondition') {
-            setError("Your Firestore database has not been created yet. Please go to the Firebase Console, select your project, and create a Firestore database.");
-        } else if (e.code === 'permission-denied') {
-            setError("Your Firestore security rules are blocking access. For development, please go to the Firebase Console and set your rules to allow read/write access.");
-        } else {
-            setError("An unexpected error occurred while fetching data. Check the console for more details.");
-        }
-        console.error(e);
-      } finally {
-        setIsLoading(false);
+  const fetchTables = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const fetchedTables = await getTables();
+      setTables(fetchedTables);
+    } catch (e: any) {
+      if (e.code === 'failed-precondition') {
+          setError("Your Firestore database has not been created yet. Please go to the Firebase Console, select your project, and create a Firestore database.");
+      } else if (e.code === 'permission-denied') {
+          setError("Your Firestore security rules are blocking access. For development, please go to the Firebase Console and set your rules to allow read/write access.");
+      } else {
+          setError("An unexpected error occurred while fetching data. Check the console for more details.");
       }
-    };
+      console.error(e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchTables();
   }, []);
 
@@ -81,8 +82,7 @@ export default function TablesPage() {
         const result = await action(formData);
         if (result.success) {
           toast({ title: "Success", description: result.message });
-          const fetchedTables = await getTables();
-          setTables(fetchedTables);
+          await fetchTables();
           closeDialog();
         } else {
           toast({ variant: "destructive", title: "Error", description: result.message });
@@ -99,8 +99,7 @@ export default function TablesPage() {
         const result = await deleteTable(id);
         if (result.success) {
           toast({ title: "Success", description: result.message });
-          const fetchedTables = await getTables();
-          setTables(fetchedTables);
+          await fetchTables();
         } else {
           toast({ variant: "destructive", title: "Error", description: result.message });
         }

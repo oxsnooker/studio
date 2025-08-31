@@ -41,7 +41,7 @@ export default function DashboardPage() {
 
         const q = query(
           collection(db, "transactions"),
-          where("createdAt", ">=", startOfToday.toMillis())
+          where("createdAt", ">=", startOfToday)
         );
         const querySnapshot = await getDocs(q);
 
