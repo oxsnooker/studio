@@ -33,9 +33,9 @@ const getTableImage = (category: string) => {
         case "American Pool":
             return { src: "https://images.unsplash.com/photo-1666193183128-6ec58995f672?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHw4JTIwYmFsbCUyMHBvb2x8ZW58MHx8fHwxNzU2NTQ4NjM5fDA&ixlib=rb-4.1.0&q=80&w=1080", hint: "pool table" };
         case "Mini Snooker":
-            return { src: "https://assets.sportsboom.com/snooker_ball_sizes_1052331832.jpg", hint: "snooker table" };
+            return { src: "https://tse1.mm.bing.net/th/id/OIP.5dWvpccyKu_5InU7Amm9iAAAAA?pid=ImgDet&w=158&h=158&c=7&o=7&rm=3", hint: "snooker table" };
         case "Standard":
-             return { src: "https://assets.sportsboom.com/snooker_ball_sizes_1052331832.jpg", hint: "billiards table" };
+             return { src: "https://tse1.mm.bing.net/th/id/OIP.5dWvpccyKu_5InU7Amm9iAAAAA?pid=ImgDet&w=158&h=158&c=7&o=7&rm=3", hint: "billiards table" };
         default:
             return { src: "https://picsum.photos/seed/default/600/400", hint: "game table" };
     }
@@ -111,7 +111,6 @@ export default function StaffDashboard() {
   const renderTableCard = (table: TableType) => {
     if (!table.id) return null;
     const session = sessions[table.id];
-    const isActive = !!session;
     const imageData = getTableImage(table.category);
 
     return (
@@ -120,13 +119,14 @@ export default function StaffDashboard() {
         onClick={() => handleCardClick(table)} 
         className={cn(
             "overflow-hidden cursor-pointer flex flex-col group",
-            isActive && "border-red-500 border-2"
+            session?.status === 'running' && "border-red-500 border-2",
+            session?.status === 'paused' && "border-yellow-500 border-2"
         )}
       >
         <div className="relative">
              <Image src={imageData.src} alt={table.name} width={195} height={130} className="object-cover aspect-[3/2] w-full group-hover:scale-105 transition-transform duration-300" data-ai-hint={imageData.hint}/>
-             <Badge className={cn("absolute top-2 right-2", isActive ? "bg-red-500" : "bg-green-500")}>
-              {isActive ? `In Use: ${formatDuration(session.elapsedSeconds)}` : "Available"}
+             <Badge className={cn("absolute top-2 right-2", session?.status === 'running' ? "bg-red-500" : session?.status === 'paused' ? 'bg-yellow-500' : "bg-green-500")}>
+              {session ? `${session.status.charAt(0).toUpperCase() + session.status.slice(1)}: ${formatDuration(session.elapsedSeconds)}` : "Available"}
             </Badge>
         </div>
         <CardHeader className="p-4">
@@ -134,7 +134,7 @@ export default function StaffDashboard() {
             <CardDescription>{table.category}</CardDescription>
         </CardHeader>
         <CardContent className="p-4 pt-0 flex-grow">
-             <p className="text-sm text-muted-foreground">{isActive ? 'Click to manage session.' : 'Click to start a new session.'}</p>
+             <p className="text-sm text-muted-foreground">{session ? 'Click to manage session.' : 'Click to start a new session.'}</p>
         </CardContent>
       </Card>
     );
