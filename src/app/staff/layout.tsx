@@ -2,10 +2,10 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { logout } from "@/app/actions";
 
 
 export default function StaffLayout({
@@ -13,11 +13,6 @@ export default function StaffLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const router = useRouter();
-  
-  const handleLogout = () => {
-      router.push('/');
-  }
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/5">
@@ -37,10 +32,12 @@ export default function StaffLayout({
             <AvatarImage src="https://picsum.photos/100/100" data-ai-hint="male avatar" />
             <AvatarFallback>S</AvatarFallback>
           </Avatar>
-           <Button onClick={handleLogout} variant="outline" size="icon">
-              <LogOut className="h-5 w-5" />
-              <span className="sr-only">Logout</span>
-            </Button>
+           <form action={logout}>
+             <Button type="submit" variant="outline" size="icon">
+                <LogOut className="h-5 w-5" />
+                <span className="sr-only">Logout</span>
+              </Button>
+           </form>
         </div>
       </header>
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">

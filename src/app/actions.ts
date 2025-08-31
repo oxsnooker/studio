@@ -5,6 +5,8 @@ import { z } from "zod";
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Staff } from '@/lib/types';
+import { createSession, deleteSession } from '@/app/session';
+import { redirect } from "next/navigation";
 
 const loginSchema = z.object({
   username: z.string().optional(),
@@ -22,6 +24,7 @@ export async function login(
 
     if (role === "admin") {
       if (password === "Teamox76@=172089") {
+        await createSession({ role: 'admin' });
         return { success: true, message: "Admin login successful." };
       }
       return { success: false, message: "Invalid Admin Password." };
@@ -42,6 +45,7 @@ export async function login(
       const staff = staffDoc.data() as Staff;
       
       if (staff.password === password) {
+         await createSession({ role: 'staff', username: staff.username, name: staff.name });
          return { success: true, message: "Staff login successful." };
       }
     }
@@ -54,4 +58,9 @@ export async function login(
     }
     return { success: false, message: "An unexpected error occurred during login." };
   }
+}
+
+export async function logout() {
+    await deleteSession();
+    redirect('/');
 }
