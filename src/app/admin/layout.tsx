@@ -1,6 +1,7 @@
 
 "use client";
 
+import React, { useState, useEffect } from 'react';
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
@@ -18,6 +19,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { logout } from "@/app/actions";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { app } from '@/lib/firebase';
 
 const navItems = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -35,6 +38,20 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const [adminName, setAdminName] = useState("Admin User");
+  const [adminInitial, setAdminInitial] = useState("A");
+
+   useEffect(() => {
+    const auth = getAuth(app);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+        if(user) {
+            setAdminName(user.displayName || "Admin User");
+            setAdminInitial(user.displayName?.[0]?.toUpperCase() || "A");
+        }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   return (
     <div className="min-h-screen w-full flex flex-col bg-muted/40">
@@ -48,12 +65,12 @@ export default function AdminLayout({
         </div>
         <div className="flex items-center gap-3">
             <div className="text-right">
-                <p className="font-semibold">Admin User</p>
+                <p className="font-semibold">{adminName}</p>
                 <p className="text-xs text-muted-foreground">Administrator</p>
             </div>
           <Avatar className="h-10 w-10 border">
             <AvatarImage src="https://picsum.photos/100/100" data-ai-hint="male avatar" />
-            <AvatarFallback>A</AvatarFallback>
+            <AvatarFallback>{adminInitial}</AvatarFallback>
           </Avatar>
            <form action={logout}>
             <Button type="submit" variant="outline" size="icon">

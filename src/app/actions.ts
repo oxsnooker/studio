@@ -2,57 +2,60 @@
 "use server";
 
 import { z } from "zod";
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import type { Staff } from '@/lib/types';
+import { auth, db } from '@/lib/firebase';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 import { createSession, deleteSession } from '@/app/session';
-import { redirect } from "next/navigation";
 
 const loginSchema = z.object({
-  username: z.string().optional(),
-  password: z.string().optional(),
-  role: z.enum(["admin", "staff"]),
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(1, "Password is required"),
 });
 
 type LoginInput = z.infer<typeof loginSchema>;
 
 export async function login(
   input: LoginInput
-): Promise<{ success: boolean; message: string; }> {
+): Promise<{ success: boolean; message: string; role?: string; }> {
   try {
-    const { username, password, role } = loginSchema.parse(input);
+    const { email, password } = loginSchema.parse(input);
 
-    if (role === "admin") {
-      if (password === "Teamox76@=172089") {
-        await createSession({ role: 'admin' });
-        return { success: true, message: "Admin login successful." };
-      }
-      return { success: false, message: "Invalid Admin Password." };
-    } 
-    
-    if (role === "staff") {
-      if (!username || !password) {
-        return { success: false, message: "Username and password are required for staff login." };
-      }
-      const q = query(collection(db, "staff"), where("username", "==", username));
-      const querySnapshot = await getDocs(q);
-      
-      if (querySnapshot.empty) {
-        return { success: false, message: "Invalid username or password" };
-      }
-      
-      const staffDoc = querySnapshot.docs[0];
-      const staff = staffDoc.data() as Staff;
-      
-      if (staff.password === password) {
-         await createSession({ role: 'staff', username: staff.username, name: staff.name });
-         return { success: true, message: "Staff login successful." };
-      }
+    // Sign in with Firebase Auth
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+
+    if (!user) {
+        return { success: false, message: "Login failed. Please try again." };
     }
 
-    return { success: false, message: "Invalid username or password" };
-  } catch (error) {
+    // Get user's custom claims (role) from Firestore
+    const userDocRef = doc(db, "users", user.uid);
+    const userDoc = await getDoc(userDocRef);
+
+    if (!userDoc.exists()) {
+       // This case should ideally not happen if user creation is handled properly
+       return { success: false, message: "User role not found." };
+    }
+    
+    const userData = userDoc.data();
+    const role = userData?.role;
+    const displayName = userData?.name || user.displayName;
+
+    if (!role) {
+        return { success: false, message: "User role not found." };
+    }
+
+    // Create session cookie
+    const idToken = await user.getIdToken();
+    await createSession(idToken);
+    
+    return { success: true, message: `Welcome ${displayName}!`, role: role };
+
+  } catch (error: any) {
     console.error("Login Error:", error);
+    if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        return { success: false, message: "Invalid email or password." };
+    }
     if (error instanceof z.ZodError) {
         return { success: false, message: "Validation failed." };
     }
@@ -60,7 +63,7 @@ export async function login(
   }
 }
 
+
 export async function logout() {
     await deleteSession();
-    redirect('/');
 }

@@ -1,5 +1,4 @@
 
-
 export interface Table {
   id: string;
   name: string;
@@ -54,15 +53,16 @@ export interface Transaction {
 
 export interface Admin {
   id:string;
-  username: string;
-  password?: string; // Should not be sent to client
+  email: string;
+  name: string;
+  role: 'admin';
 }
 
 export interface Staff {
-  id: string;
+  id: string; // This will be the Firebase Auth UID
   name: string;
-  username: string;
-  password?: string; // Should not be sent to client
+  email: string;
+  role: 'staff';
 }
 
 export interface MembershipPlan {

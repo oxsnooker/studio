@@ -3,47 +3,75 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
+import { db, adminAuth, adminDb } from '@/lib/firebase';
+import { collection, getDocs, doc, setDoc, updateDoc, deleteDoc, query, orderBy, where, writeBatch } from 'firebase/firestore';
 import type { Staff } from '@/lib/types';
+import { UserRecord } from 'firebase-admin/auth';
 
 const staffSchema = z.object({
   name: z.string().min(1, 'Staff name is required.'),
-  username: z.string().min(1, 'Username is required.'),
-  password: z.string().min(1, 'Password is required.'),
+  email: z.string().email('A valid email is required.'),
+  password: z.string().min(6, 'Password must be at least 6 characters.'),
 });
 
 const staffUpdateSchema = z.object({
     name: z.string().min(1, 'Staff name is required.'),
-    username: z.string().min(1, 'Username is required.'),
+    email: z.string().email('A valid email is required.'),
 });
 
 export async function getStaff(): Promise<Staff[]> {
-  const staffCollection = collection(db, 'staff');
-  const q = query(staffCollection, orderBy('name'));
+  // We'll get users from Firebase Auth and then enrich with data from Firestore
+  const usersCollection = collection(db, 'users');
+  const q = query(usersCollection, where('role', '==', 'staff'), orderBy('name'));
   const querySnapshot = await getDocs(q);
+
   const staff = querySnapshot.docs.map(doc => ({
-    id: doc.id,
+    id: doc.id, // The doc ID is the Firebase Auth UID
     ...doc.data()
   } as Staff));
+  
   return staff;
 }
 
 export async function addStaff(formData: FormData) {
-  const data = {
+  const parsed = staffSchema.parse({
     name: formData.get('name'),
-    username: formData.get('username'),
-    // In a real app, you would securely generate or have the user set a password.
-    // For simplicity, we're using a default one here.
-    password: formData.get('password') || 'password123'
-  };
+    email: formData.get('email'),
+    password: formData.get('password')
+  });
 
-  const parsed = staffSchema.parse(data);
+  try {
+    // 1. Create user in Firebase Auth
+    const userRecord = await adminAuth.createUser({
+      email: parsed.email,
+      password: parsed.password,
+      displayName: parsed.name,
+      emailVerified: true, // Or send a verification email
+      disabled: false,
+    });
+    
+    // 2. Set role as custom claim
+    await adminAuth.setCustomUserClaims(userRecord.uid, { role: 'staff' });
+    
+    // 3. Create a corresponding document in Firestore 'users' collection
+    const userDocRef = doc(db, 'users', userRecord.uid);
+    await setDoc(userDocRef, {
+        name: parsed.name,
+        email: parsed.email,
+        role: 'staff',
+        createdAt: Date.now()
+    });
 
-  await addDoc(collection(db, 'staff'), parsed);
+    revalidatePath('/admin/staff');
+    return { success: true, message: 'Staff member added successfully.' };
 
-  revalidatePath('/admin/staff');
-  return { success: true, message: 'Staff member added successfully.' };
+  } catch (error: any) {
+    console.error("Error adding staff:", error);
+    if (error.code === 'auth/email-already-exists') {
+        return { success: false, message: 'This email is already in use.' };
+    }
+    return { success: false, message: 'Failed to add staff member.' };
+  }
 }
 
 export async function updateStaff(id: string, formData: FormData) {
@@ -53,14 +81,29 @@ export async function updateStaff(id: string, formData: FormData) {
 
     const parsed = staffUpdateSchema.parse({
         name: formData.get('name'),
-        username: formData.get('username'),
+        email: formData.get('email'),
     });
     
-    const staffRef = doc(db, 'staff', id);
-    await updateDoc(staffRef, { ...parsed });
+    try {
+        // Update Firebase Auth user
+        await adminAuth.updateUser(id, {
+            email: parsed.email,
+            displayName: parsed.name,
+        });
 
-    revalidatePath('/admin/staff');
-    return { success: true, message: 'Staff member updated successfully.' };
+        // Update Firestore user document
+        const userDocRef = doc(db, 'users', id);
+        await updateDoc(userDocRef, { name: parsed.name, email: parsed.email });
+
+        revalidatePath('/admin/staff');
+        return { success: true, message: 'Staff member updated successfully.' };
+    } catch(error: any) {
+        console.error("Error updating staff:", error);
+        if (error.code === 'auth/email-already-exists') {
+            return { success: false, message: 'This email is already in use by another account.' };
+        }
+        return { success: false, message: 'Failed to update staff member.' };
+    }
 }
 
 export async function deleteStaff(id: string) {
@@ -68,9 +111,78 @@ export async function deleteStaff(id: string) {
         return { success: false, message: 'Invalid ID.' };
     }
     
-    const staffRef = doc(db, 'staff', id);
-    await deleteDoc(staffRef);
+    try {
+        // Delete from Firebase Auth
+        await adminAuth.deleteUser(id);
 
-    revalidatePath('/admin/staff');
-    return { success: true, message: 'Staff member deleted successfully.' };
+        // Delete from Firestore
+        const userDocRef = doc(db, 'users', id);
+        await deleteDoc(userDocRef);
+
+        revalidatePath('/admin/staff');
+        return { success: true, message: 'Staff member deleted successfully.' };
+    } catch(error) {
+        console.error("Error deleting staff:", error);
+        return { success: false, message: 'Failed to delete staff member.' };
+    }
+}
+
+// Function to run once to migrate existing staff to Firebase Auth
+// This is an example and might need to be adapted
+export async function migrateStaffToAuth() {
+    const staffCollection = collection(db, 'staff');
+    const staffSnapshot = await getDocs(staffCollection);
+    const existingStaff = staffSnapshot.docs.map(d => ({ id: d.id, ...d.data() as any}));
+
+    let successCount = 0;
+    let errorCount = 0;
+    const errors = [];
+
+    const batch = writeBatch(db);
+
+    for (const staff of existingStaff) {
+        try {
+            const email = `${staff.username}@yourapp.com`; // Create a placeholder email
+
+            // 1. Create Auth user
+            const userRecord = await adminAuth.createUser({
+                email: email,
+                password: staff.password, // This assumes passwords were stored in plaintext, which is insecure.
+                displayName: staff.name,
+                disabled: false
+            });
+
+            // 2. Set custom claim
+            await adminAuth.setCustomUserClaims(userRecord.uid, { role: 'staff' });
+            
+            // 3. Create new user doc
+            const userDocRef = doc(db, 'users', userRecord.uid);
+            batch.set(userDocRef, {
+                name: staff.name,
+                email: email,
+                role: 'staff',
+                createdAt: Date.now(),
+                legacyId: staff.id
+            });
+
+            // 4. Delete old staff doc
+            const oldStaffRef = doc(db, 'staff', staff.id);
+            batch.delete(oldStaffRef);
+
+            successCount++;
+        } catch (e: any) {
+            console.error(`Failed to migrate ${staff.name}:`, e.message);
+            errorCount++;
+            errors.push({ name: staff.name, error: e.message });
+        }
+    }
+
+    if (successCount > 0) {
+        await batch.commit();
+    }
+    
+    return {
+        message: `Migration complete. ${successCount} migrated successfully, ${errorCount} failed.`,
+        errors: errors
+    };
 }

@@ -43,20 +43,21 @@ export default function StaffPage() {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
+  const fetchStaff = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const fetchedStaff = await getStaff();
+      setStaff(fetchedStaff);
+    } catch (e: any) {
+      setError("An error occurred while fetching staff data. Please ensure your Firestore database is set up correctly.");
+      console.error(e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchStaff = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const fetchedStaff = await getStaff();
-        setStaff(fetchedStaff);
-      } catch (e: any) {
-        setError("An error occurred while fetching staff data. Please ensure your Firestore database is set up correctly.");
-        console.error(e);
-      } finally {
-        setIsLoading(false);
-      }
-    };
     fetchStaff();
   }, []);
 
@@ -73,8 +74,7 @@ export default function StaffPage() {
         const result = await action(formData);
         if (result.success) {
           toast({ title: "Success", description: result.message });
-          const fetchedStaff = await getStaff();
-          setStaff(fetchedStaff);
+          await fetchStaff();
           closeDialog();
         } else {
           toast({ variant: "destructive", title: "Error", description: result.message });
@@ -91,8 +91,7 @@ export default function StaffPage() {
         const result = await deleteStaff(id);
         if (result.success) {
           toast({ title: "Success", description: result.message });
-          const fetchedStaff = await getStaff();
-          setStaff(fetchedStaff);
+          await fetchStaff();
         } else {
           toast({ variant: "destructive", title: "Error", description: result.message });
         }
@@ -141,7 +140,7 @@ export default function StaffPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Staff Name</TableHead>
-              <TableHead>Username</TableHead>
+              <TableHead>Email</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -149,7 +148,7 @@ export default function StaffPage() {
             {staff.map((s) => (
               <TableRow key={s.id}>
                 <TableCell className="font-medium">{s.name}</TableCell>
-                <TableCell>{s.username}</TableCell>
+                <TableCell>{s.email}</TableCell>
                 <TableCell className="text-right">
                   <Button variant="ghost" size="icon" onClick={() => openEditDialog(s)}>
                     <Edit className="h-4 w-4" />
@@ -178,7 +177,7 @@ export default function StaffPage() {
           <div>
             <CardTitle>Staff Management</CardTitle>
             <CardDescription>
-              Create and manage staff login credentials from the database.
+              Create and manage staff login credentials using Firebase Authentication.
             </CardDescription>
           </div>
           <Button onClick={openAddDialog}>
@@ -207,19 +206,19 @@ export default function StaffPage() {
                 <Input id="name" name="name" defaultValue={editingStaff?.name || ""} className="col-span-3" required />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="username" className="text-right">
-                  Username
+                <Label htmlFor="email" className="text-right">
+                  Email
                 </Label>
-                <Input id="username" name="username" defaultValue={editingStaff?.username || ""} className="col-span-3" required />
+                <Input id="email" name="email" type="email" defaultValue={editingStaff?.email || ""} className="col-span-3" required />
               </div>
                {!editingStaff && (
                  <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="password"className="text-right">Password</Label>
-                    <Input id="password" name="password" type="password" placeholder="Default: password123" className="col-span-3" />
+                    <Input id="password" name="password" type="password" placeholder="Min 6 characters" className="col-span-3" required />
                 </div>
                )}
                <p className="text-sm text-muted-foreground col-span-4 text-center pt-2">
-                {editingStaff ? "Password cannot be changed here." : "Provide a password or leave blank for default."}
+                {editingStaff ? "To change a password, use the Firebase Console." : "The new staff member will use this email and password to log in."}
                </p>
             </div>
             <DialogFooter>
