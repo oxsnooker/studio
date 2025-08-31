@@ -5,7 +5,6 @@ import { z } from "zod";
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Staff } from '@/lib/types';
-import { createSession } from "@/app/session";
 
 const loginSchema = z.object({
   username: z.string().optional(),
@@ -17,14 +16,13 @@ type LoginInput = z.infer<typeof loginSchema>;
 
 export async function login(
   input: LoginInput
-): Promise<{ success: boolean; message: string; role?: string; }> {
+): Promise<{ success: boolean; message: string; }> {
   try {
     const { username, password, role } = loginSchema.parse(input);
 
     if (role === "admin") {
       if (password === "Teamox76@=172089") {
-        await createSession({ role: 'admin' });
-        return { success: true, message: "Admin login successful.", role: "admin" };
+        return { success: true, message: "Admin login successful." };
       }
       return { success: false, message: "Invalid Admin Password." };
     } 
@@ -44,8 +42,7 @@ export async function login(
       const staff = staffDoc.data() as Staff;
       
       if (staff.password === password) {
-         await createSession({ role: 'staff', username: staff.username, name: staff.name });
-         return { success: true, message: "Staff login successful.", role: "staff" };
+         return { success: true, message: "Staff login successful." };
       }
     }
 

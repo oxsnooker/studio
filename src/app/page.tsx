@@ -81,9 +81,7 @@ export default function LoginPage() {
             title: "Login Successful",
             description: "Redirecting to staff dashboard...",
         });
-        if (result.role === 'staff') {
-            router.push('/staff');
-        }
+        router.push('/staff');
       } else {
         toast({
           variant: "destructive",
@@ -103,9 +101,7 @@ export default function LoginPage() {
                 title: "Login Successful",
                 description: "Redirecting to admin dashboard...",
             });
-            if (result.role === 'admin') {
-                router.push('/admin');
-            }
+            router.push('/admin');
         } else {
             toast({
                 variant: "destructive",
