@@ -49,6 +49,8 @@ import { getMembershipPlans } from '@/app/admin/memberships/actions';
 import { format } from "date-fns";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 
 const formatDuration = (seconds: number) => {
@@ -102,13 +104,9 @@ export default function SessionPage() {
 
                 if (sessionData?.memberId) {
                     // Pre-fetch the member details if a member is already associated with the session
-                    const members = await searchMembers(sessionData.memberId);
-                    if (members.length > 0) {
-                        const memberDetails = await getDoc(doc(db, 'members', sessionData.memberId));
-                        if(memberDetails.exists()) {
-                             setSelectedMember({id: memberDetails.id, ...memberDetails.data()} as Member);
-                        }
-                       
+                    const memberDetails = await getDoc(doc(db, 'members', sessionData.memberId));
+                    if(memberDetails.exists()) {
+                            setSelectedMember({id: memberDetails.id, ...memberDetails.data()} as Member);
                     }
                 }
             } catch (error) {
@@ -198,20 +196,6 @@ export default function SessionPage() {
         
         setSession(newSession);
         await updateActiveSession(tableId, newSession);
-    };
-    
-    const handleCancelSession = async () => {
-        if (!tableId) return;
-        startTransition(async () => {
-            const result = await deleteActiveSession(tableId);
-            if (result.success) {
-                toast({ title: "Session Canceled", description: "The active session has been removed." });
-                setSession(null); // Clear local session state
-                router.push('/staff'); // Navigate back to the dashboard
-            } else {
-                toast({ variant: 'destructive', title: 'Error', description: result.message });
-            }
-        });
     };
 
     const handleSettleBill = () => {
@@ -415,42 +399,50 @@ export default function SessionPage() {
     const handleAddItem = useCallback((itemToAdd: MenuItem) => {
         if (!session) return;
         
-        const newItems = [...session.items];
-        const existingItemIndex = newItems.findIndex(item => item.id === itemToAdd.id);
+        setSession(currentSession => {
+            if (!currentSession) return null;
+            
+            const newItems = [...currentSession.items];
+            const existingItemIndex = newItems.findIndex(item => item.id === itemToAdd.id);
 
-        if (existingItemIndex > -1) {
-            newItems[existingItemIndex] = {
-                ...newItems[existingItemIndex],
-                quantity: newItems[existingItemIndex].quantity + 1,
-            };
-        } else {
-            newItems.push({ ...itemToAdd, quantity: 1 });
-        }
-        
-        const newSession = { ...session, items: newItems };
-        setSession(newSession);
-        updateActiveSession(tableId, newSession);
+            if (existingItemIndex > -1) {
+                newItems[existingItemIndex] = {
+                    ...newItems[existingItemIndex],
+                    quantity: newItems[existingItemIndex].quantity + 1,
+                };
+            } else {
+                newItems.push({ ...itemToAdd, quantity: 1 });
+            }
+            
+            const newSession = { ...currentSession, items: newItems };
+            updateActiveSession(tableId, newSession);
+            return newSession;
+        });
     }, [session, tableId]);
     
     
     const handleRemoveItem = useCallback((itemIdToRemove: string) => {
         if (!session) return;
-    
-        const existingItem = session.items.find(item => item.id === itemIdToRemove);
-        if (!existingItem) return;
 
-        let newItems;
-        if (existingItem.quantity > 1) {
-            newItems = session.items.map(item => 
-                item.id === itemIdToRemove ? { ...item, quantity: item.quantity - 1 } : item
-            );
-        } else {
-            newItems = session.items.filter(item => item.id !== itemIdToRemove);
-        }
-    
-        const newSession = { ...session, items: newItems };
-        setSession(newSession);
-        updateActiveSession(tableId, newSession);
+        setSession(currentSession => {
+            if (!currentSession) return null;
+
+            const existingItem = currentSession.items.find(item => item.id === itemIdToRemove);
+            if (!existingItem) return currentSession;
+
+            let newItems;
+            if (existingItem.quantity > 1) {
+                newItems = currentSession.items.map(item => 
+                    item.id === itemIdToRemove ? { ...item, quantity: item.quantity - 1 } : item
+                );
+            } else {
+                newItems = currentSession.items.filter(item => item.id !== itemIdToRemove);
+            }
+        
+            const newSession = { ...currentSession, items: newItems };
+            updateActiveSession(tableId, newSession);
+            return newSession;
+        });
     }, [session, tableId]);
     
     const isSplitPayMismatch = useMemo(() => {
@@ -594,29 +586,8 @@ export default function SessionPage() {
                     </Card>
 
                     <Card>
-                        <CardHeader className="flex flex-row items-center justify-between">
+                        <CardHeader>
                             <CardTitle className="text-base">Membership Check</CardTitle>
-                            {session && (
-                                <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <Button variant="destructive" size="sm" disabled={isPending}>
-                                            <Trash2 className='mr-2 h-4 w-4'/>Cancel Session
-                                        </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            This action cannot be undone. This will permanently delete the current running session and all of its data.
-                                        </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction onClick={handleCancelSession}>Continue</AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
-                            )}
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <form onSubmit={handleMemberSearch} className="flex gap-2">
