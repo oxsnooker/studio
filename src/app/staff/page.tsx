@@ -115,7 +115,14 @@ export default function StaffDashboard() {
     const imageData = getTableImage(table.category);
 
     return (
-      <Card key={table.id} onClick={() => handleCardClick(table)} className="overflow-hidden cursor-pointer flex flex-col group">
+      <Card 
+        key={table.id} 
+        onClick={() => handleCardClick(table)} 
+        className={cn(
+            "overflow-hidden cursor-pointer flex flex-col group",
+            isActive && "border-red-500 border-2"
+        )}
+      >
         <div className="relative">
              <Image src={imageData.src} alt={table.name} width={195} height={130} className="object-cover aspect-[3/2] w-full group-hover:scale-105 transition-transform duration-300" data-ai-hint={imageData.hint}/>
              <Badge className={cn("absolute top-2 right-2", isActive ? "bg-red-500" : "bg-green-500")}>
