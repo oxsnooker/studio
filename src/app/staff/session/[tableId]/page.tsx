@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useCallback, useTransition } from 'react';
@@ -12,13 +11,14 @@ import {
     deductHoursFromMember,
     getActiveSessionByTableId,
     updateActiveSession,
-    startActiveSession
+    startActiveSession,
+    deleteActiveSession
 } from '@/app/staff/actions';
 import type { Table as TableType, MenuItem, ActiveSession, Transaction, OrderItem, Member, MembershipPlan } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Loader2, ArrowLeft, Plus, Minus, Receipt, Play, Pause, Wallet, Smartphone, Split, Award, Search, UserCheck, StopCircle } from 'lucide-react';
+import { Loader2, ArrowLeft, Plus, Minus, Receipt, Play, Pause, Wallet, Smartphone, Split, Award, Search, UserCheck, StopCircle, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -28,7 +28,19 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogDescription
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -89,9 +101,14 @@ export default function SessionPage() {
                 setSession(sessionData);
 
                 if (sessionData?.memberId) {
+                    // Pre-fetch the member details if a member is already associated with the session
                     const members = await searchMembers(sessionData.memberId);
                     if (members.length > 0) {
-                        setSelectedMember(members[0]);
+                        const memberDetails = await getDoc(doc(db, 'members', sessionData.memberId));
+                        if(memberDetails.exists()) {
+                             setSelectedMember({id: memberDetails.id, ...memberDetails.data()} as Member);
+                        }
+                       
                     }
                 }
             } catch (error) {
@@ -107,19 +124,17 @@ export default function SessionPage() {
     useEffect(() => {
         const timer = setInterval(() => {
             setCurrentTime(new Date());
-            if (session?.status === 'running') {
-                setSession(prev => {
-                    if (!prev || prev.status !== 'running') return prev;
-                    
-                    const elapsed = Math.floor((Date.now() - prev.startTime) / 1000) - prev.totalPauseDuration;
-                    if(prev.elapsedSeconds === elapsed) return prev;
+            setSession(prev => {
+                if (!prev || prev.status !== 'running') return prev;
+                
+                const elapsed = Math.floor((Date.now() - prev.startTime) / 1000) - prev.totalPauseDuration;
+                if(prev.elapsedSeconds === elapsed) return prev;
 
-                    return { ...prev, elapsedSeconds: elapsed };
-                });
-            }
+                return { ...prev, elapsedSeconds: elapsed };
+            });
         }, 1000);
         return () => clearInterval(timer);
-    }, [session?.status, session?.startTime, session?.totalPauseDuration]);
+    }, []);
 
 
     const handleStart = async () => {
@@ -135,20 +150,24 @@ export default function SessionPage() {
 
     const handlePause = async () => { 
         if (!session || session.status !== 'running') return;
-        const newSession = { ...session, status: 'paused' as 'paused', pauseTime: Date.now() };
+        // Calculate the exact elapsed time at the moment of pausing
+        const elapsed = Math.floor((Date.now() - session.startTime) / 1000) - session.totalPauseDuration;
+        const newSession = { ...session, status: 'paused' as 'paused', pauseTime: Date.now(), elapsedSeconds: elapsed };
         setSession(newSession);
         await updateActiveSession(tableId, newSession);
     };
     
-    const handleStop = async () => {
+     const handleStop = async () => {
         if (!session) return;
-        let finalElapsed = session.elapsedSeconds;
-        if (session.status === 'running') {
-            finalElapsed = Math.floor((Date.now() - session.startTime)/1000) - session.totalPauseDuration;
-        }
-        const newSession = { ...session, status: 'stopped' as 'stopped', elapsedSeconds: finalElapsed };
-        setSession(newSession);
-        await updateActiveSession(tableId, newSession);
+        startTransition(async () => {
+            let finalElapsed = session.elapsedSeconds;
+            if (session.status === 'running') {
+                finalElapsed = Math.floor((Date.now() - session.startTime)/1000) - session.totalPauseDuration;
+            }
+            const newSession = { ...session, status: 'stopped' as 'stopped', elapsedSeconds: finalElapsed };
+            setSession(newSession);
+            await updateActiveSession(tableId, newSession);
+        });
     }
 
     const handleResume = async () => {
@@ -165,11 +184,13 @@ export default function SessionPage() {
                 pauseTime: undefined,
             };
         } else if (session.status === 'stopped') {
-            const newStartTime = Date.now() - (session.elapsedSeconds * 1000) - (session.totalPauseDuration * 1000);
+            // When resuming from a stopped state, recalculate startTime based on the frozen elapsedSeconds
+            const newStartTime = Date.now() - (session.elapsedSeconds * 1000);
             newSession = {
                 ...session,
                 startTime: newStartTime,
                 status: 'running' as 'running',
+                totalPauseDuration: 0, // Reset pause duration as startTime is new
             };
         } else {
             return;
@@ -177,6 +198,20 @@ export default function SessionPage() {
         
         setSession(newSession);
         await updateActiveSession(tableId, newSession);
+    };
+    
+    const handleCancelSession = async () => {
+        if (!tableId) return;
+        startTransition(async () => {
+            const result = await deleteActiveSession(tableId);
+            if (result.success) {
+                toast({ title: "Session Canceled", description: "The active session has been removed." });
+                setSession(null); // Clear local session state
+                router.push('/staff'); // Navigate back to the dashboard
+            } else {
+                toast({ variant: 'destructive', title: 'Error', description: result.message });
+            }
+        });
     };
 
     const handleSettleBill = () => {
@@ -220,13 +255,17 @@ export default function SessionPage() {
             { title: 'Phone', value: selectedMember?.mobileNumber || 'N/A' },
             { title: 'Payment Method', value: transaction.paymentMethod },
             { title: 'Billing Date', value: billingDate },
-            { title: 'Subscription Status', value: selectedMember ? 'Active' : 'N/A' },
-            { title: 'Subscription End Date', value: selectedMember?.validityDate ? format(new Date(selectedMember.validityDate), "PP") : 'N/A' },
-            { title: 'Plan', value: memberPlan?.name || 'N/A' },
-            { title: 'Plan Cost', value: memberPlan ? `₹${memberPlan.price}` : 'N/A' },
-            { title: 'Subscription Time', value: memberPlan ? `${memberPlan.totalHours} hrs` : 'N/A' },
-            { title: 'Remaining Time', value: selectedMember ? `${selectedMember.remainingHours.toFixed(2)} hrs` : 'N/A' },
         ];
+        if (selectedMember) {
+            customerDetails.push(
+                { title: 'Subscription Status', value: selectedMember ? 'Active' : 'N/A' },
+                { title: 'Subscription End Date', value: selectedMember?.validityDate ? format(new Date(selectedMember.validityDate), "PP") : 'N/A' },
+                { title: 'Plan', value: memberPlan?.name || 'N/A' },
+                { title: 'Plan Cost', value: memberPlan ? `₹${memberPlan.price}` : 'N/A' },
+                { title: 'Subscription Time', value: memberPlan ? `${memberPlan.totalHours} hrs` : 'N/A' },
+                { title: 'Remaining Time', value: selectedMember ? `${selectedMember.remainingHours.toFixed(2)} hrs` : 'N/A' }
+            );
+        }
 
         autoTable(doc, {
             startY: 40,
@@ -246,16 +285,18 @@ export default function SessionPage() {
 
         // Purchased Items
         let finalY = (doc as any).lastAutoTable.finalY + 10;
-        autoTable(doc, {
-            startY: finalY,
-            head: [['Item', 'Quantity', 'Price per Unit (Rs)', 'Total Price (Rs)']],
-            body: transaction.items.map(i => [i.name, i.quantity, i.price.toFixed(2), (i.price * i.quantity).toFixed(2)]),
-            theme: 'striped',
-            headStyles: { fillColor: [37, 99, 235] },
-        });
+        if (transaction.items.length > 0) {
+            autoTable(doc, {
+                startY: finalY,
+                head: [['Item', 'Quantity', 'Price per Unit (Rs)', 'Total Price (Rs)']],
+                body: transaction.items.map(i => [i.name, i.quantity, i.price.toFixed(2), (i.price * i.quantity).toFixed(2)]),
+                theme: 'striped',
+                headStyles: { fillColor: [37, 99, 235] },
+            });
+            finalY = (doc as any).lastAutoTable.finalY + 10;
+        }
 
         // Timer Details
-        finalY = (doc as any).lastAutoTable.finalY + 10;
         const timerDetails = [
             { title: 'Started At', value: new Date(transaction.startTime).toLocaleString() },
             { title: 'Ended At', value: new Date(transaction.endTime).toLocaleString() },
@@ -370,8 +411,8 @@ export default function SessionPage() {
             }
         });
     };
-
-    const handleAddItem = (itemToAdd: MenuItem) => {
+    
+    const handleAddItem = useCallback((itemToAdd: MenuItem) => {
         if (!session) return;
         
         const newItems = [...session.items];
@@ -389,7 +430,8 @@ export default function SessionPage() {
         const newSession = { ...session, items: newItems };
         setSession(newSession);
         updateActiveSession(tableId, newSession);
-    };
+    }, [session, tableId]);
+    
     
     const handleRemoveItem = useCallback((itemIdToRemove: string) => {
         if (!session) return;
@@ -455,12 +497,14 @@ export default function SessionPage() {
     
     useEffect(() => {
         if (selectedPaymentMethod !== 'Membership' && session?.memberId) {
-            setSelectedMember(null);
-            const newSession = { ...session, customerName: 'Walk-in Customer', memberId: null };
-            setSession(newSession);
-            updateActiveSession(tableId, newSession);
+            if (selectedMember) {
+                setSelectedMember(null);
+                const newSession = { ...session, customerName: 'Walk-in Customer', memberId: null };
+                setSession(newSession);
+                updateActiveSession(tableId, newSession);
+            }
         }
-    }, [selectedPaymentMethod, session, tableId]);
+    }, [selectedPaymentMethod, session, tableId, selectedMember]);
 
 
     if (isLoading) {
@@ -531,12 +575,12 @@ export default function SessionPage() {
                                     <Pause className="mr-2 h-4 w-4" />
                                     Pause
                                </Button>
-                                <Button onClick={handleResume} disabled={sessionStatus !== 'paused' && sessionStatus !== 'stopped'} variant="outline">
+                                <Button onClick={handleResume} disabled={!['paused', 'stopped'].includes(sessionStatus)} variant="outline">
                                     <Play className="mr-2 h-4 w-4" />
                                     Resume
                                 </Button>
-                               <Button onClick={handleStop} disabled={sessionStatus !== 'running'} variant="destructive" className="col-span-1">
-                                   <StopCircle className="mr-2 h-4 w-4" />
+                               <Button onClick={handleStop} disabled={sessionStatus !== 'running' || isPending} variant="destructive" className="col-span-1">
+                                   {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <StopCircle className="mr-2 h-4 w-4" />}
                                    Stop
                                 </Button>
                              </CardFooter>
@@ -550,8 +594,29 @@ export default function SessionPage() {
                     </Card>
 
                     <Card>
-                        <CardHeader>
+                        <CardHeader className="flex flex-row items-center justify-between">
                             <CardTitle className="text-base">Membership Check</CardTitle>
+                            {session && (
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="destructive" size="sm" disabled={isPending}>
+                                            <Trash2 className='mr-2 h-4 w-4'/>Cancel Session
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            This action cannot be undone. This will permanently delete the current running session and all of its data.
+                                        </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={handleCancelSession}>Continue</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            )}
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <form onSubmit={handleMemberSearch} className="flex gap-2">
