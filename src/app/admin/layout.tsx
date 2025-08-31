@@ -13,6 +13,7 @@ import {
   BarChart3,
   Package,
   LogOut,
+  User,
 } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -30,6 +31,7 @@ const navItems = [
   { href: "/admin/memberships", label: "Memberships", icon: Award },
   { href: "/admin/staff", label: "Staff", icon: Users },
   { href: "/admin/reports", label: "Reports", icon: BarChart3 },
+  { href: "/admin/profile", label: "Profile", icon: User },
 ];
 
 export default function AdminLayout({
