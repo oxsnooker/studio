@@ -144,18 +144,21 @@ export default function SessionPage() {
         await updateActiveSession(tableId, newSession);
     };
     
-    const handleStop = async () => {
-        if (!session) return;
-        startTransition(async () => {
-            let finalElapsed = session.elapsedSeconds;
-            if (session.status === 'running') {
-                finalElapsed = Math.floor((Date.now() - session.startTime)/1000) - session.totalPauseDuration;
-            }
-            const newSession = { ...session, status: 'stopped' as 'stopped', elapsedSeconds: finalElapsed };
-            setSession(newSession);
-            await updateActiveSession(tableId, newSession);
-        });
-    }
+    const handleStop = useCallback(async () => {
+        if (!session || session.status !== 'running') return;
+        
+        const finalElapsed = Math.floor((Date.now() - session.startTime) / 1000) - session.totalPauseDuration;
+        
+        const newSession: ActiveSession = { 
+            ...session, 
+            status: 'stopped' as const, 
+            elapsedSeconds: finalElapsed 
+        };
+        
+        setSession(newSession);
+        await updateActiveSession(tableId, newSession);
+
+    }, [session, tableId]);
 
     const handleResume = async () => {
         if (!session || !['paused', 'stopped'].includes(session.status)) return;
@@ -348,6 +351,7 @@ export default function SessionPage() {
         }
 
         const isMembershipPayment = selectedPaymentMethod === 'Membership';
+        const originalTableCost = parseFloat(tableCost.toFixed(2));
 
         const transaction: Transaction = {
             tableId: table.id,
@@ -355,7 +359,7 @@ export default function SessionPage() {
             startTime: startTimeDate.getTime(),
             endTime: new Date().getTime(),
             durationSeconds: session.elapsedSeconds,
-            tableCost: isMembershipPayment ? 0 : parseFloat(tableCost.toFixed(2)),
+            tableCost: isMembershipPayment ? 0 : originalTableCost,
             itemsCost: parseFloat(itemsCost.toFixed(2)),
             totalAmount: totalPayable,
             paymentMethod: selectedPaymentMethod,
@@ -392,6 +396,7 @@ export default function SessionPage() {
     
     const handleAddItem = (itemToAdd: MenuItem) => {
         if (!session) return;
+        
         const newItems = [...session.items];
         const existingItemIndex = newItems.findIndex(item => item.id === itemToAdd.id);
 
@@ -411,6 +416,7 @@ export default function SessionPage() {
 
     const handleRemoveItem = (itemIdToRemove: string) => {
         if (!session) return;
+        
         let newItems: OrderItem[];
         const existingItem = session.items.find(item => item.id === itemIdToRemove);
         if (!existingItem) return;
@@ -779,7 +785,30 @@ export default function SessionPage() {
                             {selectedPaymentMethod === 'Membership' && (
                                 <div className="space-y-4 mt-4 p-4 border rounded-md">
                                     {!selectedMember && (
-                                        <p className="text-sm text-center text-muted-foreground">Please use the 'Membership Check' feature on the main page to select a member first.</p>
+                                        <div className="space-y-3">
+                                            <form onSubmit={handleMemberSearch} className="flex gap-2">
+                                                <Input 
+                                                    id="memberSearchDialog" 
+                                                    value={memberSearchTerm} 
+                                                    onChange={(e) => setMemberSearchTerm(e.target.value)}
+                                                    placeholder="Search Name or Mobile"
+                                                />
+                                                <Button type="submit" disabled={isSearching || !memberSearchTerm.trim()}>
+                                                    {isSearching ? <Loader2 className="h-4 w-4 animate-spin"/> : <Search className="h-4 w-4" />}
+                                                    <span className="ml-2">Check</span>
+                                                </Button>
+                                            </form>
+                                            {searchedMembers.length > 0 && (
+                                                <div className="space-y-2">
+                                                    {searchedMembers.map(member => (
+                                                        <div key={member.id} onClick={() => handleSelectMember(member)} className="p-2 border rounded-md cursor-pointer hover:bg-muted">
+                                                            <p className='font-semibold'>{member.name}</p>
+                                                            <p className='text-xs text-muted-foreground'>Mobile: {member.mobileNumber} | Remaining: {member.remainingHours.toFixed(2)} hrs</p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
                                     )}
                                     
                                     {selectedMember && (
