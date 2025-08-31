@@ -1,3 +1,4 @@
+
 import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
@@ -22,18 +23,19 @@ const auth = getAuth(app);
 // Initialize Firebase Admin SDK for server-side operations
 if (!admin.apps.length) {
     try {
-        admin.initializeApp({
-            credential: admin.credential.applicationDefault(),
-        });
-    } catch (e: any) {
-        // In environments where default credentials aren't available (like local dev without gcloud CLI setup),
-        // we can try to initialize with a service account key from environment variables.
-        if (e.code === 'invalid-credential' && process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-             admin.initializeApp({
-                credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)),
+        const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+        if (serviceAccount) {
+            admin.initializeApp({
+                credential: admin.credential.cert(JSON.parse(serviceAccount)),
             });
-        } else if (e.code !== 'already-exists') {
-             console.error('Firebase admin initialization error:', e);
+        } else {
+             admin.initializeApp({
+                credential: admin.credential.applicationDefault(),
+            });
+        }
+    } catch (e: any) {
+        if (e.code !== 'already-exists') {
+             console.error('Firebase admin initialization error:', e.stack);
         }
     }
 }
