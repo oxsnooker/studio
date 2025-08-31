@@ -33,9 +33,9 @@ const getTableImage = (category: string) => {
         case "American Pool":
             return { src: "https://images.unsplash.com/photo-1666193183128-6ec58995f672?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHw4JTIwYmFsbCUyMHBvb2x8ZW58MHx8fHwxNzU2NTQ4NjM5fDA&ixlib=rb-4.1.0&q=80&w=1080", hint: "pool table" };
         case "Mini Snooker":
-            return { src: "https://tse1.mm.bing.net/th/id/OIP.5dWvpccyKu_5InU7Amm9iAAAAA?pid=ImgDet&w=158&h=158&c=7&o=7&rm=3", hint: "snooker table" };
+            return { src: "https://assets.sportsboom.com/snooker_ball_sizes_1052331832.jpg", hint: "snooker table" };
         case "Standard":
-             return { src: "https://tse1.mm.bing.net/th/id/OIP.5dWvpccyKu_5InU7Amm9iAAAAA?pid=ImgDet&w=158&h=158&c=7&o=7&rm=3", hint: "billiards table" };
+             return { src: "https://assets.sportsboom.com/snooker_ball_sizes_1052331832.jpg", hint: "billiards table" };
         default:
             return { src: "https://picsum.photos/seed/default/600/400", hint: "game table" };
     }

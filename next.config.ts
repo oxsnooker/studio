@@ -39,6 +39,12 @@ const nextConfig: NextConfig = {
         hostname: 'tse1.mm.bing.net',
         port: '',
         pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'assets.sportsboom.com',
+        port: '',
+        pathname: '/**',
       }
     ],
   },
