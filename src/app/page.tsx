@@ -28,8 +28,6 @@ import { useToast } from "@/hooks/use-toast";
 import { login } from "@/app/actions";
 import { Logo } from "@/components/logo";
 import { Loader2 } from "lucide-react";
-import { redirect } from "next/navigation";
-import { cookies } from 'next/headers';
 
 const formSchema = z.object({
   email: z.string().email("Please enter a valid email."),
@@ -59,8 +57,10 @@ export default function LoginPage() {
         });
         if (result.role === 'admin') {
             router.push('/admin');
+            router.refresh();
         } else if (result.role === 'staff') {
             router.push('/staff');
+            router.refresh();
         }
       } else {
         toast({
@@ -97,7 +97,7 @@ export default function LoginPage() {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., user@example.com" {...field} />
+                      <Input placeholder="admin@example.com" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -110,7 +110,7 @@ export default function LoginPage() {
                   <FormItem>
                     <FormLabel>Password</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} />
+                      <Input type="password" placeholder="password" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

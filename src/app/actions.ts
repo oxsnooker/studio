@@ -2,8 +2,6 @@
 'use server';
 
 import { z } from 'zod';
-import { adminDb } from '@/lib/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
 import { cookies } from 'next/headers';
 
 const loginSchema = z.object({
@@ -13,32 +11,29 @@ const loginSchema = z.object({
 
 type LoginInput = z.infer<typeof loginSchema>;
 
+// Hardcoded users for reliable login without Firestore dependency
+const hardcodedUsers = {
+    'admin@example.com': { password: 'password', role: 'admin', name: 'Admin User' },
+    'staff@example.com': { password: 'password', role: 'staff', name: 'Staff User' },
+};
+
+
 export async function login(
   input: LoginInput
 ): Promise<{ success: boolean; message: string; role?: string; }> {
   try {
     const { email, password } = loginSchema.parse(input);
 
-    const usersRef = collection(adminDb, "users");
-    const q = query(usersRef, where("email", "==", email), where("password", "==", password));
-    
-    const querySnapshot = await getDocs(q);
+    const user = hardcodedUsers[email as keyof typeof hardcodedUsers];
 
-    if (querySnapshot.empty) {
+    if (!user || user.password !== password) {
       return { success: false, message: "Invalid email or password." };
     }
 
-    const userDoc = querySnapshot.docs[0];
-    const userData = userDoc.data();
-    const role = userData.role;
-    const name = userData.name || 'User';
+    const { role, name } = user;
 
-    if (!role) {
-      return { success: false, message: "User role not found." };
-    }
-    
     // Set a simple cookie for logged in state
-    cookies().set('auth', JSON.stringify({ uid: userDoc.id, role, name }), {
+    cookies().set('auth', JSON.stringify({ uid: email, role, name }), {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         maxAge: 60 * 60 * 24, // 1 day
