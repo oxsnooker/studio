@@ -2,7 +2,7 @@
 "use server";
 
 import { z } from "zod";
-import { auth, db } from '@/lib/firebase';
+import { auth, adminDb } from '@/lib/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { createSession, deleteSession } from '@/app/session';
@@ -20,7 +20,7 @@ export async function login(
   try {
     const { email, password } = loginSchema.parse(input);
 
-    // Sign in with Firebase Auth
+    // Sign in with Firebase Auth (client SDK is fine for this part)
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
@@ -28,8 +28,8 @@ export async function login(
         return { success: false, message: "Login failed. Please try again." };
     }
 
-    // Get user's custom claims (role) from Firestore
-    const userDocRef = doc(db, "users", user.uid);
+    // Get user's custom claims (role) from Firestore using the Admin SDK
+    const userDocRef = doc(adminDb, "users", user.uid);
     const userDoc = await getDoc(userDocRef);
 
     if (!userDoc.exists()) {
