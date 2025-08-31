@@ -1,9 +1,9 @@
 
 'use server';
 
-import { doc, getDoc, collection, addDoc, runTransaction, updateDoc, query, where, getDocs, writeBatch } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, runTransaction, updateDoc, query, where, getDocs, writeBatch, deleteDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Table, Transaction, MenuItem as MenuItemType, Member } from '@/lib/types';
+import type { Table, Transaction, MenuItem as MenuItemType, Member, ActiveSession } from '@/lib/types';
 import { getMenuItems as getAllMenuItems } from '@/app/admin/menu/actions';
 import { revalidatePath } from 'next/cache';
 
@@ -22,6 +22,66 @@ export async function getTableById(id: string): Promise<Table | null> {
 
 export async function getMenuItems(): Promise<MenuItemType[]> {
     return getAllMenuItems();
+}
+
+// Active Session Management
+export async function getActiveSessions(): Promise<ActiveSession[]> {
+    const sessionsCollection = collection(db, 'activeSessions');
+    const querySnapshot = await getDocs(sessionsCollection);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as ActiveSession);
+}
+
+export async function getActiveSessionByTableId(tableId: string): Promise<ActiveSession | null> {
+    const sessionRef = doc(db, 'activeSessions', tableId);
+    const docSnap = await getDoc(sessionRef);
+    if (docSnap.exists()) {
+        return { id: docSnap.id, ...docSnap.data() } as ActiveSession;
+    }
+    return null;
+}
+
+export async function updateActiveSession(tableId: string, sessionData: ActiveSession): Promise<{ success: boolean; message: string }> {
+    try {
+        const sessionRef = doc(db, 'activeSessions', tableId);
+        // Remove id from data to avoid storing it in the document
+        const dataToSave = { ...sessionData };
+        delete dataToSave.id;
+        await setDoc(sessionRef, dataToSave, { merge: true });
+        return { success: true, message: 'Session updated' };
+    } catch (error: any) {
+        return { success: false, message: error.message };
+    }
+}
+
+export async function startActiveSession(tableId: string): Promise<{ success: boolean; message: string; session: ActiveSession | null }> {
+    try {
+        const newSession: ActiveSession = {
+            tableId: tableId,
+            startTime: Date.now(),
+            elapsedSeconds: 0,
+            items: [],
+            status: 'running',
+            totalPauseDuration: 0,
+            customerName: 'Walk-in Customer',
+            memberId: null
+        };
+        const sessionRef = doc(db, 'activeSessions', tableId);
+        await setDoc(sessionRef, newSession);
+        return { success: true, message: 'Session started', session: newSession };
+    } catch (error: any) {
+        return { success: false, message: error.message, session: null };
+    }
+}
+
+
+export async function deleteActiveSession(tableId: string): Promise<{ success: boolean; message: string }> {
+    try {
+        const sessionRef = doc(db, 'activeSessions', tableId);
+        await deleteDoc(sessionRef);
+        return { success: true, message: 'Session deleted' };
+    } catch (error: any) {
+        return { success: false, message: error.message };
+    }
 }
 
 
@@ -57,6 +117,10 @@ export async function saveTransaction(transactionData: Transaction) {
         }
         transaction.update(ref, { stock: newStock });
       }
+
+      // 4. DELETE the active session
+      const sessionRef = doc(db, 'activeSessions', transactionData.tableId);
+      transaction.delete(sessionRef);
     });
 
     // Revalidate paths to update data on related pages
@@ -64,6 +128,7 @@ export async function saveTransaction(transactionData: Transaction) {
     revalidatePath('/admin/reports');
     revalidatePath('/admin/stock');
     revalidatePath('/admin/menu');
+    revalidatePath('/staff');
 
     return { success: true, message: 'Transaction saved successfully.' };
   } catch (error: any) {
@@ -153,6 +218,10 @@ export async function deductHoursFromMember(memberId: string, hoursToDeduct: num
                     firestoreTransaction.update(ref, { stock: newStock });
                 }
             }
+
+            // 4. DELETE the active session
+            const sessionRef = doc(db, 'activeSessions', transactionData.tableId);
+            firestoreTransaction.delete(sessionRef);
         });
 
         // Revalidate paths to update data on related pages
@@ -161,6 +230,7 @@ export async function deductHoursFromMember(memberId: string, hoursToDeduct: num
         revalidatePath('/admin/stock');
         revalidatePath('/admin/menu');
         revalidatePath('/admin/memberships'); // Revalidate memberships to show updated hours
+        revalidatePath('/staff');
 
         return { success: true, message: 'Hours deducted and transaction saved successfully.' };
     } catch (error: any) {

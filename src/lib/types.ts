@@ -20,15 +20,18 @@ export interface OrderItem extends MenuItem {
 }
 
 export interface ActiveSession {
-  startTime: Date;
+  id?: string; // Firestore document ID
+  tableId: string;
+  startTime: number; // Timestamp
   elapsedSeconds: number;
   items: OrderItem[];
   status: 'running' | 'paused' | 'stopped';
-  pauseTime?: Date;
+  pauseTime?: number; // Timestamp
   totalPauseDuration: number;
   customerName: string;
   memberId: string | null;
 }
+
 
 export interface Transaction {
     id?: string;
@@ -79,5 +82,3 @@ export interface Member {
   mobileNumber?: string;
   validityDate?: number; // Expiration timestamp
 }
-
-    

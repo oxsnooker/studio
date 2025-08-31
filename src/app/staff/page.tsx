@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getTables } from "@/app/admin/tables/actions";
+import { getActiveSessions } from "./actions";
 import type { ActiveSession } from "@/lib/types";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
@@ -32,9 +33,9 @@ const getTableImage = (category: string) => {
         case "American Pool":
             return { src: "https://images.unsplash.com/photo-1666193183128-6ec58995f672?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHw4JTIwYmFsbCUyMHBvb2x8ZW58MHx8fHwxNzU2NTQ4NjM5fDA&ixlib=rb-4.1.0&q=80&w=1080", hint: "pool table" };
         case "Mini Snooker":
-            return { src: "https://tse3.mm.bing.net/th/id/OIP.HuHTft4jryQ5Fy-fxXRQEQHaE7?pid=ImgDet&w=195&h=130&c=7&o=7&rm=3", hint: "snooker table" };
+            return { src: "https://images.unsplash.com/photo-1589495882299-ba9a834125f9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxzbm9va2VyfGVufDB8fHx8MTc1NjU2NzM3N3ww&ixlib=rb-4.1.0&q=80&w=1080", hint: "snooker table" };
         case "Standard":
-             return { src: "https://tse3.mm.bing.net/th/id/OIP.HuHTft4jryQ5Fy-fxXRQEQHaE7?pid=ImgDet&w=195&h=130&c=7&o=7&rm=3", hint: "billiards table" };
+             return { src: "https://images.unsplash.com/photo-1589495882299-ba9a834125f9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxzbm9va2VyfGVufDB8fHx8MTc1NjU2NzM3N3ww&ixlib=rb-4.1.0&q=80&w=1080", hint: "billiards table" };
         default:
             return { src: "https://picsum.photos/seed/default/600/400", hint: "game table" };
     }
@@ -49,19 +50,26 @@ export default function StaffDashboard() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("All Tables");
 
-  // Fetch initial data for tables and menu items
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const fetchedTables = await getTables();
+        const [fetchedTables, fetchedSessions] = await Promise.all([
+          getTables(),
+          getActiveSessions(),
+        ]);
         setTables(fetchedTables);
+        const sessionsMap = fetchedSessions.reduce((acc, session) => {
+          acc[session.tableId] = session;
+          return acc;
+        }, {} as Record<string, ActiveSession>);
+        setSessions(sessionsMap);
       } catch (error) {
-        console.error("Failed to fetch tables", error);
+        console.error("Failed to fetch data", error);
         toast({
             variant: "destructive",
             title: "Error",
-            description: "Could not load tables. Check connection and Firestore setup.",
+            description: "Could not load data. Check connection and Firestore setup.",
         });
       } finally {
         setIsLoading(false);
@@ -69,22 +77,7 @@ export default function StaffDashboard() {
     };
     fetchData();
   }, [toast]);
-  
-  // Load sessions from localStorage on component mount
-  useEffect(() => {
-    const savedSessions = localStorage.getItem("activeSessions");
-    if (savedSessions) {
-      const parsedSessions = JSON.parse(savedSessions, (key, value) => {
-        if (key === 'startTime' || key === 'pauseTime') {
-          return value ? new Date(value) : null;
-        }
-        return value;
-      });
-      setSessions(parsedSessions);
-    }
-  }, []);
 
-  // Timer and elapsed seconds update logic
   useEffect(() => {
     const interval = setInterval(() => {
       setSessions(prev => {
@@ -93,17 +86,14 @@ export default function StaffDashboard() {
         Object.keys(newSessions).forEach((tableId) => {
           const session = newSessions[tableId];
           if (session && session.status === 'running') {
-            const now = new Date().getTime();
-            const elapsed = Math.floor((now - new Date(session.startTime).getTime()) / 1000) - session.totalPauseDuration;
+            const now = Date.now();
+            const elapsed = Math.floor((now - session.startTime) / 1000) - session.totalPauseDuration;
             if (session.elapsedSeconds !== elapsed) {
               newSessions[tableId] = { ...session, elapsedSeconds: elapsed };
               changed = true;
             }
           }
         });
-        if (changed) {
-            localStorage.setItem("activeSessions", JSON.stringify(newSessions));
-        }
         return changed ? newSessions : prev;
       });
     }, 1000);

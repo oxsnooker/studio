@@ -4,7 +4,16 @@
 import { useState, useEffect, useMemo, useCallback, useTransition } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { getTableById, getMenuItems, saveTransaction, searchMembers, deductHoursFromMember } from '@/app/staff/actions';
+import { 
+    getTableById, 
+    getMenuItems, 
+    saveTransaction, 
+    searchMembers, 
+    deductHoursFromMember,
+    getActiveSessionByTableId,
+    updateActiveSession,
+    startActiveSession
+} from '@/app/staff/actions';
 import type { Table as TableType, MenuItem, ActiveSession, Transaction, OrderItem, Member, MembershipPlan } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -62,20 +71,29 @@ export default function SessionPage() {
     const [isSearching, setIsSearching] = useState(false);
 
 
-    // Load table and menu data
+    // Load initial data
     useEffect(() => {
         const fetchData = async () => {
             if (!tableId) return;
             setIsLoading(true);
             try {
-                const [tableData, menuData, plansData] = await Promise.all([
+                const [tableData, menuData, plansData, sessionData] = await Promise.all([
                     getTableById(tableId),
                     getMenuItems(),
-                    getMembershipPlans()
+                    getMembershipPlans(),
+                    getActiveSessionByTableId(tableId)
                 ]);
                 setTable(tableData);
                 setMenuItems(menuData);
                 setMembershipPlans(plansData);
+                setSession(sessionData);
+
+                if (sessionData?.memberId) {
+                    const members = await searchMembers(sessionData.memberId);
+                    if (members.length > 0) {
+                        setSelectedMember(members[0]);
+                    }
+                }
             } catch (error) {
                 toast({ variant: 'destructive', title: 'Error', description: 'Failed to load session data.' });
             } finally {
@@ -84,25 +102,6 @@ export default function SessionPage() {
         };
         fetchData();
     }, [tableId, toast]);
-
-    // Load session from localStorage
-    useEffect(() => {
-        const allSessions: Record<string, ActiveSession> = JSON.parse(localStorage.getItem('activeSessions') || '{}', (key, value) => {
-            if (['startTime', 'pauseTime'].includes(key) && value) return new Date(value);
-            return value;
-        });
-        setSession(allSessions[tableId] || null);
-        if (allSessions[tableId]?.memberId) {
-             // If a member is already associated, fetch their full details.
-            const fetchMember = async () => {
-                const members = await searchMembers(allSessions[tableId].memberId);
-                if (members.length > 0) {
-                    setSelectedMember(members[0]);
-                }
-            };
-            fetchMember();
-        }
-    }, [tableId]);
     
     // Timer updates
     useEffect(() => {
@@ -112,71 +111,53 @@ export default function SessionPage() {
                 setSession(prev => {
                     if (!prev || prev.status !== 'running') return prev;
                     
-                    const elapsed = Math.floor((new Date().getTime() - new Date(prev.startTime).getTime()) / 1000) - prev.totalPauseDuration;
+                    const elapsed = Math.floor((Date.now() - prev.startTime) / 1000) - prev.totalPauseDuration;
                     if(prev.elapsedSeconds === elapsed) return prev;
 
-                    const newSession = { ...prev, elapsedSeconds: elapsed };
-                    
-                    const allSessions = JSON.parse(localStorage.getItem('activeSessions') || '{}');
-                    allSessions[tableId] = newSession;
-                    localStorage.setItem('activeSessions', JSON.stringify(allSessions));
-
-                    return newSession;
+                    return { ...prev, elapsedSeconds: elapsed };
                 });
             }
         }, 1000);
         return () => clearInterval(timer);
-    }, [tableId, session?.status]);
+    }, [session?.status, session?.startTime, session?.totalPauseDuration]);
 
 
-    const updateSessionInStorage = (newSession: ActiveSession | null) => {
-        const allSessions = JSON.parse(localStorage.getItem('activeSessions') || '{}');
-        if (newSession) {
-            allSessions[tableId] = newSession;
-        } else {
-            delete allSessions[tableId];
-        }
-        localStorage.setItem('activeSessions', JSON.stringify(allSessions));
-        setSession(newSession);
-    };
-    
-    const handleStart = () => {
+    const handleStart = async () => {
         if (session) return;
-        const newSession: ActiveSession = {
-            startTime: new Date(),
-            elapsedSeconds: 0,
-            status: 'running',
-            items: [],
-            totalPauseDuration: 0,
-            customerName: 'Walk-in Customer',
-            memberId: null
-        };
-        updateSessionInStorage(newSession);
+        const result = await startActiveSession(tableId);
+        if (result.success && result.session) {
+            setSession(result.session);
+            toast({title: "Success", description: "Session started!"});
+        } else {
+            toast({variant: 'destructive', title: 'Error', description: 'Failed to start session.'});
+        }
     };
 
-    const handlePause = () => { 
+    const handlePause = async () => { 
         if (!session || session.status !== 'running') return;
-        const newSession = { ...session, status: 'paused' as 'paused', pauseTime: new Date() };
-        updateSessionInStorage(newSession);
+        const newSession = { ...session, status: 'paused' as 'paused', pauseTime: Date.now() };
+        setSession(newSession);
+        await updateActiveSession(tableId, newSession);
     };
     
-    const handleStop = () => {
+    const handleStop = async () => {
         if (!session) return;
         let finalElapsed = session.elapsedSeconds;
         if (session.status === 'running') {
-            finalElapsed = Math.floor((new Date().getTime() - new Date(session.startTime).getTime())/1000) - session.totalPauseDuration;
+            finalElapsed = Math.floor((Date.now() - session.startTime)/1000) - session.totalPauseDuration;
         }
         const newSession = { ...session, status: 'stopped' as 'stopped', elapsedSeconds: finalElapsed };
-        updateSessionInStorage(newSession);
+        setSession(newSession);
+        await updateActiveSession(tableId, newSession);
     }
 
-    const handleResume = () => {
+    const handleResume = async () => {
         if (!session || !['paused', 'stopped'].includes(session.status)) return;
     
         let newSession: ActiveSession;
     
         if (session.status === 'paused' && session.pauseTime) {
-            const pauseDuration = Math.floor((new Date().getTime() - new Date(session.pauseTime).getTime()) / 1000);
+            const pauseDuration = Math.floor((Date.now() - session.pauseTime) / 1000);
             newSession = {
                 ...session,
                 status: 'running' as 'running',
@@ -184,19 +165,18 @@ export default function SessionPage() {
                 pauseTime: undefined,
             };
         } else if (session.status === 'stopped') {
-            // Recalculate startTime to continue timer from where it was stopped
-            const newStartTime = new Date(new Date().getTime() - (session.elapsedSeconds * 1000) - (session.totalPauseDuration * 1000));
+            const newStartTime = Date.now() - (session.elapsedSeconds * 1000) - (session.totalPauseDuration * 1000);
             newSession = {
                 ...session,
                 startTime: newStartTime,
                 status: 'running' as 'running',
             };
         } else {
-            // Should not happen, but as a fallback
             return;
         }
         
-        updateSessionInStorage(newSession);
+        setSession(newSession);
+        await updateActiveSession(tableId, newSession);
     };
 
     const handleSettleBill = () => {
@@ -382,7 +362,7 @@ export default function SessionPage() {
 
             if (result.success) {
                 generateInvoicePdf(transaction);
-                updateSessionInStorage(null);
+                setSession(null);
                 toast({ title: 'Success', description: `Bill settled with ${selectedPaymentMethod}.` });
                 router.push('/staff');
             } else {
@@ -394,8 +374,7 @@ export default function SessionPage() {
     const handleAddItem = (itemToAdd: MenuItem) => {
         if (!session) return;
         
-        const currentSession = { ...session };
-        const newItems = [...currentSession.items];
+        const newItems = [...session.items];
         const existingItemIndex = newItems.findIndex(item => item.id === itemToAdd.id);
 
         if (existingItemIndex > -1) {
@@ -407,31 +386,30 @@ export default function SessionPage() {
             newItems.push({ ...itemToAdd, quantity: 1 });
         }
         
-        const newSession = { ...currentSession, items: newItems };
-        updateSessionInStorage(newSession);
+        const newSession = { ...session, items: newItems };
+        setSession(newSession);
+        updateActiveSession(tableId, newSession);
     };
     
     const handleRemoveItem = useCallback((itemIdToRemove: string) => {
-        setSession(currentSession => {
-            if (!currentSession) return null;
+        if (!session) return;
     
-            const existingItem = currentSession.items.find(item => item.id === itemIdToRemove);
-            if (!existingItem) return currentSession;
+        const existingItem = session.items.find(item => item.id === itemIdToRemove);
+        if (!existingItem) return;
+
+        let newItems;
+        if (existingItem.quantity > 1) {
+            newItems = session.items.map(item => 
+                item.id === itemIdToRemove ? { ...item, quantity: item.quantity - 1 } : item
+            );
+        } else {
+            newItems = session.items.filter(item => item.id !== itemIdToRemove);
+        }
     
-            let newItems;
-            if (existingItem.quantity > 1) {
-                newItems = currentSession.items.map(item => 
-                    item.id === itemIdToRemove ? { ...item, quantity: item.quantity - 1 } : item
-                );
-            } else {
-                newItems = currentSession.items.filter(item => item.id !== itemIdToRemove);
-            }
-    
-            const newSession = { ...currentSession, items: newItems };
-            updateSessionInStorage(newSession);
-            return newSession;
-        });
-    }, []);
+        const newSession = { ...session, items: newItems };
+        setSession(newSession);
+        updateActiveSession(tableId, newSession);
+    }, [session, tableId]);
     
     const isSplitPayMismatch = useMemo(() => {
         if (selectedPaymentMethod !== 'Split Pay') return false;
@@ -460,15 +438,13 @@ export default function SessionPage() {
     };
 
     const handleSelectMember = (member: Member) => {
+        if (!session) return;
         setSelectedMember(member);
         setSearchedMembers([]);
         setMemberSearchTerm('');
-        setSession(prev => {
-            if (!prev) return null;
-            const newSession = { ...prev, customerName: member.name, memberId: member.id };
-            updateSessionInStorage(newSession);
-            return newSession;
-        });
+        const newSession = { ...session, customerName: member.name, memberId: member.id };
+        setSession(newSession);
+        updateActiveSession(tableId, newSession);
     };
     
     const playedHours = useMemo(() => session ? session.elapsedSeconds / 3600 : 0, [session]);
@@ -478,13 +454,13 @@ export default function SessionPage() {
     }, [selectedMember, playedHours]);
     
     useEffect(() => {
-        // Reset member search when payment method changes, but not if it's changing to 'Membership'
-        if (selectedPaymentMethod !== 'Membership') {
+        if (selectedPaymentMethod !== 'Membership' && session?.memberId) {
             setSelectedMember(null);
-            setSearchedMembers([]);
-            setMemberSearchTerm('');
+            const newSession = { ...session, customerName: 'Walk-in Customer', memberId: null };
+            setSession(newSession);
+            updateActiveSession(tableId, newSession);
         }
-    }, [selectedPaymentMethod]);
+    }, [selectedPaymentMethod, session, tableId]);
 
 
     if (isLoading) {
@@ -551,7 +527,7 @@ export default function SessionPage() {
                         </CardContent>
                          {session ? (
                              <CardFooter className="grid grid-cols-3 gap-2 no-print">
-                               <Button onClick={sessionStatus === 'running' ? handlePause : handleResume} disabled={sessionStatus === 'idle' || sessionStatus === 'stopped'} variant="outline">
+                               <Button onClick={handlePause} disabled={sessionStatus !== 'running'} variant="outline">
                                     <Pause className="mr-2 h-4 w-4" />
                                     Pause
                                </Button>
@@ -830,5 +806,3 @@ export default function SessionPage() {
         </div>
     );
 }
-
-    
