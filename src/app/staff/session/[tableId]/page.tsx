@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useCallback, useTransition } from 'react';
@@ -18,7 +19,7 @@ import type { Table as TableType, MenuItem, ActiveSession, Transaction, OrderIte
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Loader2, ArrowLeft, Plus, Minus, Receipt, Play, Pause, Wallet, Smartphone, Split, Award, Search, UserCheck, StopCircle, Trash2 } from 'lucide-react';
+import { Loader2, ArrowLeft, Plus, Minus, Receipt, Play, Pause, Wallet, Smartphone, Split, Award, Search, UserCheck, StopCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -155,7 +156,7 @@ export default function SessionPage() {
         await updateActiveSession(tableId, newSession);
     };
     
-     const handleStop = async () => {
+    const handleStop = async () => {
         if (!session) return;
         startTransition(async () => {
             let finalElapsed = session.elapsedSeconds;
@@ -217,8 +218,11 @@ export default function SessionPage() {
     }, [session]);
 
     const totalPayable = useMemo(() => {
+        if (selectedPaymentMethod === 'Membership') {
+            return Math.floor(itemsCost);
+        }
         return Math.floor(tableCost + itemsCost);
-    }, [tableCost, itemsCost]);
+    }, [tableCost, itemsCost, selectedPaymentMethod]);
 
     const generateInvoicePdf = (transaction: Transaction) => {
         if (!table) return;
@@ -398,10 +402,10 @@ export default function SessionPage() {
     
     const handleAddItem = useCallback((itemToAdd: MenuItem) => {
         if (!session) return;
-    
+
         const newItems = [...session.items];
         const existingItemIndex = newItems.findIndex(item => item.id === itemToAdd.id);
-    
+
         if (existingItemIndex > -1) {
             newItems[existingItemIndex] = {
                 ...newItems[existingItemIndex],
@@ -418,10 +422,10 @@ export default function SessionPage() {
 
     const handleRemoveItem = useCallback((itemIdToRemove: string) => {
         if (!session) return;
-    
+
         const existingItem = session.items.find(item => item.id === itemIdToRemove);
         if (!existingItem) return;
-    
+
         let newItems;
         if (existingItem.quantity > 1) {
             newItems = session.items.map(item => 

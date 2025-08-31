@@ -165,7 +165,7 @@ export async function searchMembers(searchTerm: string): Promise<Member[]> {
 
 
 export async function deductHoursFromMember(memberId: string, hoursToDeduct: number, transactionData: Transaction) {
-    if (!memberId || hoursToDeduct <= 0) {
+    if (!memberId || hoursToDeduct < 0) {
         return { success: false, message: 'Invalid member ID or hours to deduct.' };
     }
 
