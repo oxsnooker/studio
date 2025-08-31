@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { logout } from "@/app/session";
 
 
 export default function StaffLayout({
@@ -15,8 +16,8 @@ export default function StaffLayout({
 }) {
   const router = useRouter();
   
-  const handleLogout = () => {
-      // In a real app with sessions, you'd call a server action here.
+  const handleLogout = async () => {
+      await logout();
       router.push('/');
   }
 

@@ -5,7 +5,7 @@ import { z } from "zod";
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Staff } from '@/lib/types';
-
+import { createSession } from "@/app/session";
 
 const loginSchema = z.object({
   username: z.string().optional(),
@@ -22,8 +22,8 @@ export async function login(
     const { username, password, role } = loginSchema.parse(input);
 
     if (role === "admin") {
-      // Hardcoded admin password check
       if (password === "Teamox76@=172089") {
+        await createSession({ role: 'admin' });
         return { success: true, message: "Admin login successful.", role: "admin" };
       }
       return { success: false, message: "Invalid Admin Password." };
@@ -43,8 +43,8 @@ export async function login(
       const staffDoc = querySnapshot.docs[0];
       const staff = staffDoc.data() as Staff;
       
-      // In a real app, passwords should be hashed.
       if (staff.password === password) {
+         await createSession({ role: 'staff', username: staff.username, name: staff.name });
          return { success: true, message: "Staff login successful.", role: "staff" };
       }
     }
@@ -52,6 +52,10 @@ export async function login(
     return { success: false, message: "Invalid username or password" };
   } catch (error) {
     console.error("Login Error:", error);
+    if (error instanceof z.ZodError) {
+        return { success: false, message: "Validation failed." };
+    }
     return { success: false, message: "An unexpected error occurred during login." };
   }
 }
+

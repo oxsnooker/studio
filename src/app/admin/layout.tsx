@@ -17,6 +17,7 @@ import { Logo } from "@/components/logo";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { logout } from "@/app/session";
 
 const navItems = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -36,10 +37,10 @@ export default function AdminLayout({
   const pathname = usePathname();
   const router = useRouter();
 
-  const handleLogout = () => {
-      // In a real app with sessions, you'd call a server action here.
-      router.push('/');
-  }
+  const handleLogout = async () => {
+    await logout();
+    router.push('/');
+  };
 
   return (
     <div className="min-h-screen w-full flex flex-col bg-muted/40">
