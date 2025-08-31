@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { db, adminAuth, adminDb } from '@/lib/firebase';
+import { adminDb, adminAuth } from '@/lib/firebase-admin';
 import { collection, getDocs, doc, setDoc, updateDoc, deleteDoc, query, orderBy, where, writeBatch } from 'firebase/firestore';
 import type { Staff } from '@/lib/types';
 import { UserRecord } from 'firebase-admin/auth';
@@ -21,7 +21,7 @@ const staffUpdateSchema = z.object({
 
 export async function getStaff(): Promise<Staff[]> {
   // We'll get users from Firebase Auth and then enrich with data from Firestore
-  const usersCollection = collection(db, 'users');
+  const usersCollection = collection(adminDb, 'users');
   const q = query(usersCollection, where('role', '==', 'staff'), orderBy('name'));
   const querySnapshot = await getDocs(q);
 
@@ -54,7 +54,7 @@ export async function addStaff(formData: FormData) {
     await adminAuth.setCustomUserClaims(userRecord.uid, { role: 'staff' });
     
     // 3. Create a corresponding document in Firestore 'users' collection
-    const userDocRef = doc(db, 'users', userRecord.uid);
+    const userDocRef = doc(adminDb, 'users', userRecord.uid);
     await setDoc(userDocRef, {
         name: parsed.name,
         email: parsed.email,
@@ -92,7 +92,7 @@ export async function updateStaff(id: string, formData: FormData) {
         });
 
         // Update Firestore user document
-        const userDocRef = doc(db, 'users', id);
+        const userDocRef = doc(adminDb, 'users', id);
         await updateDoc(userDocRef, { name: parsed.name, email: parsed.email });
 
         revalidatePath('/admin/staff');
@@ -116,7 +116,7 @@ export async function deleteStaff(id: string) {
         await adminAuth.deleteUser(id);
 
         // Delete from Firestore
-        const userDocRef = doc(db, 'users', id);
+        const userDocRef = doc(adminDb, 'users', id);
         await deleteDoc(userDocRef);
 
         revalidatePath('/admin/staff');
@@ -130,7 +130,7 @@ export async function deleteStaff(id: string) {
 // Function to run once to migrate existing staff to Firebase Auth
 // This is an example and might need to be adapted
 export async function migrateStaffToAuth() {
-    const staffCollection = collection(db, 'staff');
+    const staffCollection = collection(adminDb, 'staff');
     const staffSnapshot = await getDocs(staffCollection);
     const existingStaff = staffSnapshot.docs.map(d => ({ id: d.id, ...d.data() as any}));
 
@@ -138,7 +138,7 @@ export async function migrateStaffToAuth() {
     let errorCount = 0;
     const errors = [];
 
-    const batch = writeBatch(db);
+    const batch = writeBatch(adminDb);
 
     for (const staff of existingStaff) {
         try {
@@ -156,7 +156,7 @@ export async function migrateStaffToAuth() {
             await adminAuth.setCustomUserClaims(userRecord.uid, { role: 'staff' });
             
             // 3. Create new user doc
-            const userDocRef = doc(db, 'users', userRecord.uid);
+            const userDocRef = doc(adminDb, 'users', userRecord.uid);
             batch.set(userDocRef, {
                 name: staff.name,
                 email: email,
@@ -166,7 +166,7 @@ export async function migrateStaffToAuth() {
             });
 
             // 4. Delete old staff doc
-            const oldStaffRef = doc(db, 'staff', staff.id);
+            const oldStaffRef = doc(adminDb, 'staff', staff.id);
             batch.delete(oldStaffRef);
 
             successCount++;

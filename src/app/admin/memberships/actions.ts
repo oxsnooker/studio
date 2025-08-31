@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { db } from '@/lib/firebase';
+import { adminDb } from '@/lib/firebase-admin';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import type { MembershipPlan, Member } from '@/lib/types';
 
@@ -34,7 +34,7 @@ const memberUpdateSchema = z.object({
 
 // Actions for Membership Plans
 export async function getMembershipPlans(): Promise<MembershipPlan[]> {
-  const plansCollection = collection(db, 'membershipPlans');
+  const plansCollection = collection(adminDb, 'membershipPlans');
   const q = query(plansCollection, orderBy('price'));
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => ({
@@ -51,14 +51,14 @@ export async function addMembershipPlan(formData: FormData) {
     totalHours: formData.get('totalHours'),
     color: formData.get('color'),
   });
-  await addDoc(collection(db, 'membershipPlans'), parsed);
+  await addDoc(collection(adminDb, 'membershipPlans'), parsed);
   revalidatePath('/admin/memberships');
   return { success: true, message: 'Membership plan added.' };
 }
 
 // Actions for Members
 export async function getMembers(): Promise<Member[]> {
-  const membersCollection = collection(db, 'members');
+  const membersCollection = collection(adminDb, 'members');
   const q = query(membersCollection, orderBy('name'));
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => ({
@@ -92,7 +92,7 @@ export async function addMember(formData: FormData) {
       validityDate: parsed.validityDate ? parsed.validityDate.getTime() : undefined,
   };
 
-  await addDoc(collection(db, 'members'), data);
+  await addDoc(collection(adminDb, 'members'), data);
   revalidatePath('/admin/memberships');
   return { success: true, message: 'New member added.' };
 }
@@ -118,7 +118,7 @@ export async function updateMember(id: string, formData: FormData) {
         validityDate: parsed.validityDate ? parsed.validityDate.getTime() : undefined,
     };
 
-    const memberRef = doc(db, 'members', id);
+    const memberRef = doc(adminDb, 'members', id);
     await updateDoc(memberRef, data);
     revalidatePath('/admin/memberships');
     return { success: true, message: 'Member details updated.' };

@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { db } from '@/lib/firebase';
+import { adminDb } from '@/lib/firebase-admin';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import type { MenuItem } from '@/lib/types';
 
@@ -15,7 +15,7 @@ const menuItemSchema = z.object({
 });
 
 export async function getMenuItems(): Promise<MenuItem[]> {
-  const menuItemsCollection = collection(db, 'menuItems');
+  const menuItemsCollection = collection(adminDb, 'menuItems');
   const q = query(menuItemsCollection, orderBy('name'));
   const querySnapshot = await getDocs(q);
   const menuItems = querySnapshot.docs.map(doc => ({
@@ -33,7 +33,7 @@ export async function addMenuItem(formData: FormData) {
     stock: formData.get('stock'),
   });
 
-  await addDoc(collection(db, 'menuItems'), parsed);
+  await addDoc(collection(adminDb, 'menuItems'), parsed);
 
   revalidatePath('/admin/menu');
   return { success: true, message: 'Menu item added successfully.' };
@@ -51,7 +51,7 @@ export async function updateMenuItem(id: string, formData: FormData) {
         stock: formData.get('stock'),
     });
     
-    const menuItemRef = doc(db, 'menuItems', id);
+    const menuItemRef = doc(adminDb, 'menuItems', id);
     await updateDoc(menuItemRef, { ...parsed });
 
     revalidatePath('/admin/menu');
@@ -63,7 +63,7 @@ export async function deleteMenuItem(id: string) {
         return { success: false, message: 'Invalid ID.' };
     }
     
-    const menuItemRef = doc(db, 'menuItems', id);
+    const menuItemRef = doc(adminDb, 'menuItems', id);
     await deleteDoc(menuItemRef);
 
     revalidatePath('/admin/menu');

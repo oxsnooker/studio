@@ -4,7 +4,7 @@
 import { getStaff as getAllStaff } from '../staff/actions';
 import type { Staff } from '@/lib/types';
 import { collection, query, where, getDocs, Timestamp, writeBatch } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { adminDb } from '@/lib/firebase-admin';
 import { revalidatePath } from 'next/cache';
 
 
@@ -25,7 +25,7 @@ export async function clearTodaysTransactions() {
         const startOfToday = Timestamp.fromDate(today);
 
         const q = query(
-          collection(db, "transactions"),
+          collection(adminDb, "transactions"),
           where("createdAt", ">=", startOfToday.toMillis())
         );
 
@@ -35,7 +35,7 @@ export async function clearTodaysTransactions() {
             return { success: true, message: 'No transactions to clear for today.' };
         }
         
-        const batch = writeBatch(db);
+        const batch = writeBatch(adminDb);
         querySnapshot.forEach(doc => {
             batch.delete(doc.ref);
         });

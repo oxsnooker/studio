@@ -39,7 +39,7 @@ import { format } from "date-fns";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db } from '@/lib/firebase-client';
 
 
 const formatDuration = (seconds: number) => {

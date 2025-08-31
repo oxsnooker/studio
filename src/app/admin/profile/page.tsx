@@ -19,7 +19,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { getAuth, onAuthStateChanged, User } from "firebase/auth";
-import { app } from "@/lib/firebase";
+import { app } from "@/lib/firebase-client";
 import { updateAdminProfile } from "./actions";
 
 const profileSchema = z.object({

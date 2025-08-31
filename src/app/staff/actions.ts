@@ -2,7 +2,7 @@
 'use server';
 
 import { doc, getDoc, collection, addDoc, runTransaction, updateDoc, query, where, getDocs, writeBatch, deleteDoc, setDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db } from '@/lib/firebase-client';
 import type { Table, Transaction, MenuItem as MenuItemType, Member, ActiveSession } from '@/lib/types';
 import { getMenuItems as getAllMenuItems } from '@/app/admin/menu/actions';
 import { revalidatePath } from 'next/cache';

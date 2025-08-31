@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { DollarSign, Clock, Utensils, AppWindow, Calendar as CalendarIcon, Loader2, Terminal, Receipt } from "lucide-react";
 import { collection, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db } from '@/lib/firebase-client';
 import type { Transaction } from "@/lib/types";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 

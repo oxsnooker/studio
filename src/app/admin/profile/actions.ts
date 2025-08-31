@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { adminAuth, adminDb } from '@/lib/firebase';
+import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { doc, updateDoc } from 'firebase/firestore';
 
 const profileUpdateSchema = z.object({

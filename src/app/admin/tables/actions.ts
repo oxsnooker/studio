@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { db } from '@/lib/firebase';
+import { adminDb } from '@/lib/firebase-admin';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import type { Table } from '@/lib/types';
 
@@ -14,7 +14,7 @@ const tableSchema = z.object({
 });
 
 export async function getTables(): Promise<Table[]> {
-  const tablesCollection = collection(db, 'tables');
+  const tablesCollection = collection(adminDb, 'tables');
   const q = query(tablesCollection, orderBy('name'));
   const querySnapshot = await getDocs(q);
   const tables = querySnapshot.docs.map(doc => ({
@@ -31,7 +31,7 @@ export async function addTable(formData: FormData) {
     rate: formData.get('rate'),
   });
 
-  await addDoc(collection(db, 'tables'), parsed);
+  await addDoc(collection(adminDb, 'tables'), parsed);
 
   revalidatePath('/admin/tables');
   return { success: true, message: 'Table added successfully.' };
@@ -48,7 +48,7 @@ export async function updateTable(id: string, formData: FormData) {
         rate: formData.get('rate'),
     });
     
-    const tableRef = doc(db, 'tables', id);
+    const tableRef = doc(adminDb, 'tables', id);
     await updateDoc(tableRef, { ...parsed });
 
     revalidatePath('/admin/tables');
@@ -60,7 +60,7 @@ export async function deleteTable(id: string) {
         return { success: false, message: 'Invalid ID.' };
     }
     
-    const tableRef = doc(db, 'tables', id);
+    const tableRef = doc(adminDb, 'tables', id);
     await deleteDoc(tableRef);
 
     revalidatePath('/admin/tables');

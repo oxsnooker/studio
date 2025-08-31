@@ -21,7 +21,7 @@ const nextConfig = {
         pathname: '/**',
       },
       {
-        protocol: 'https',
+        protocol: 'https' ,
         hostname: 'images.unsplash.com',
         port: '',
         pathname: '/**',
@@ -33,6 +33,14 @@ const nextConfig = {
         pathname: '/**',
       }
     ],
+  },
+  webpack(config) {
+    config.experiments = {
+      ...config.experiments,
+      asyncWebAssembly: true,
+    };
+
+    return config;
   },
 };
 

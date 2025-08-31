@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { db } from '@/lib/firebase';
+import { adminDb } from '@/lib/firebase-admin';
 import { doc, updateDoc } from 'firebase/firestore';
 
 const stockUpdateSchema = z.object({
@@ -18,7 +18,7 @@ export async function updateStock(id: string, newStock: number) {
     try {
         const parsed = stockUpdateSchema.parse({ stock: newStock });
         
-        const menuItemRef = doc(db, 'menuItems', id);
+        const menuItemRef = doc(adminDb, 'menuItems', id);
         await updateDoc(menuItemRef, { stock: parsed.stock });
 
         revalidatePath('/admin/stock');
