@@ -28,6 +28,8 @@ import { useToast } from "@/hooks/use-toast";
 import { login } from "@/app/actions";
 import { Logo } from "@/components/logo";
 import { Loader2 } from "lucide-react";
+import { redirect } from "next/navigation";
+import { cookies } from 'next/headers';
 
 const formSchema = z.object({
   email: z.string().email("Please enter a valid email."),

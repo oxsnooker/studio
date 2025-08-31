@@ -6,39 +6,21 @@ import { Button } from "@/components/ui/button";
 import { LogOut, User } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { logout } from "@/app/actions";
-import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { app } from '@/lib/firebase';
-import { getDoc, doc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { useRouter } from 'next/navigation';
 
 export default function StaffLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const router = useRouter();
   const [userName, setUserName] = useState("Staff Member");
   const [userInitial, setUserInitial] = useState("S");
 
-  useEffect(() => {
-    const auth = getAuth(app);
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-        if(user) {
-            // Fetch user details from Firestore
-            const userDocRef = doc(db, 'users', user.uid);
-            const userDoc = await getDoc(userDocRef);
-            if (userDoc.exists()) {
-                const userData = userDoc.data();
-                setUserName(userData.name || "Staff");
-                setUserInitial(userData.name?.[0]?.toUpperCase() || "S");
-            } else {
-                 setUserName(user.displayName || "Staff");
-                 setUserInitial(user.displayName?.[0]?.toUpperCase() || "S");
-            }
-        }
-    });
-
-    return () => unsubscribe();
-  }, []);
+  const handleLogout = async () => {
+    await logout();
+    router.push('/');
+  };
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/5">
@@ -58,7 +40,7 @@ export default function StaffLayout({
             <AvatarImage src="https://picsum.photos/100/100" data-ai-hint="male avatar" />
             <AvatarFallback>{userInitial}</AvatarFallback>
           </Avatar>
-           <form action={logout}>
+           <form action={handleLogout}>
              <Button type="submit" variant="outline" size="icon">
                 <LogOut className="h-5 w-5" />
                 <span className="sr-only">Logout</span>

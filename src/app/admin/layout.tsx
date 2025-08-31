@@ -20,8 +20,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { logout } from "@/app/actions";
-import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { app } from '@/lib/firebase';
+import { useRouter } from 'next/navigation';
 
 const navItems = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -40,20 +39,15 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [adminName, setAdminName] = useState("Admin User");
   const [adminInitial, setAdminInitial] = useState("A");
 
-   useEffect(() => {
-    const auth = getAuth(app);
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-        if(user) {
-            setAdminName(user.displayName || "Admin User");
-            setAdminInitial(user.displayName?.[0]?.toUpperCase() || "A");
-        }
-    });
+   const handleLogout = async () => {
+    await logout();
+    router.push('/');
+  };
 
-    return () => unsubscribe();
-  }, []);
 
   return (
     <div className="min-h-screen w-full flex flex-col bg-muted/40">
@@ -74,7 +68,7 @@ export default function AdminLayout({
             <AvatarImage src="https://picsum.photos/100/100" data-ai-hint="male avatar" />
             <AvatarFallback>{adminInitial}</AvatarFallback>
           </Avatar>
-           <form action={logout}>
+           <form action={handleLogout}>
             <Button type="submit" variant="outline" size="icon">
                 <LogOut className="h-5 w-5" />
                 <span className="sr-only">Logout</span>

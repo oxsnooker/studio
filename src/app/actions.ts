@@ -1,11 +1,10 @@
 
-"use server";
+'use server';
 
-import { z } from "zod";
-import { auth, adminDb } from '@/lib/firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { createSession, deleteSession } from '@/app/session';
+import { z } from 'zod';
+import { adminDb } from '@/lib/firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { cookies } from 'next/headers';
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -20,50 +19,43 @@ export async function login(
   try {
     const { email, password } = loginSchema.parse(input);
 
-    // Sign in with Firebase Auth (client SDK is fine for this part)
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
-
-    if (!user) {
-        return { success: false, message: "Login failed. Please try again." };
-    }
-
-    // Get user's custom claims (role) from Firestore using the Admin SDK
-    const userDocRef = doc(adminDb, "users", user.uid);
-    const userDoc = await getDoc(userDocRef);
-
-    if (!userDoc.exists()) {
-       // This case should ideally not happen if user creation is handled properly
-       return { success: false, message: "User role not found." };
-    }
+    const usersRef = collection(adminDb, "users");
+    const q = query(usersRef, where("email", "==", email), where("password", "==", password));
     
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) {
+      return { success: false, message: "Invalid email or password." };
+    }
+
+    const userDoc = querySnapshot.docs[0];
     const userData = userDoc.data();
-    const role = userData?.role;
-    const displayName = userData?.name || user.displayName;
+    const role = userData.role;
+    const name = userData.name || 'User';
 
     if (!role) {
-        return { success: false, message: "User role not found." };
+      return { success: false, message: "User role not found." };
     }
-
-    // Create session cookie
-    const idToken = await user.getIdToken();
-    await createSession(idToken);
     
-    return { success: true, message: `Welcome ${displayName}!`, role: role };
+    // Set a simple cookie for logged in state
+    cookies().set('auth', JSON.stringify({ uid: userDoc.id, role, name }), {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 60 * 60 * 24, // 1 day
+        path: '/',
+    });
+
+    return { success: true, message: `Welcome ${name}!`, role: role };
 
   } catch (error: any) {
     console.error("Login Error:", error);
-    if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-        return { success: false, message: "Invalid email or password." };
-    }
-    if (error instanceof z.ZodError) {
+     if (error instanceof z.ZodError) {
         return { success: false, message: "Validation failed." };
     }
     return { success: false, message: "An unexpected error occurred during login." };
   }
 }
 
-
 export async function logout() {
-    await deleteSession();
+    cookies().delete('auth');
 }
