@@ -12,8 +12,7 @@ import {
     deductHoursFromMember,
     getActiveSessionByTableId,
     updateActiveSession,
-    startActiveSession,
-    deleteActiveSession
+    startActiveSession
 } from '@/app/staff/actions';
 import type { Table as TableType, MenuItem, ActiveSession, Transaction, OrderItem, Member, MembershipPlan } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -31,17 +30,6 @@ import {
   DialogTitle,
   DialogDescription
 } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -289,7 +277,7 @@ export default function SessionPage() {
             { title: 'Started At', value: new Date(transaction.startTime).toLocaleString() },
             { title: 'Ended At', value: new Date(transaction.endTime).toLocaleString() },
             { title: 'Timer Duration', value: formatDuration(transaction.durationSeconds) },
-            { title: 'Timer Price (Rs)', value: transaction.tableCost.toFixed(2) },
+            { title: 'Timer Price (Rs)', value: transaction.paymentMethod === 'Membership' ? '₹0.00 (Covered by Membership)' : `₹${transaction.tableCost.toFixed(2)}` },
         ];
         autoTable(doc, {
             startY: finalY,
@@ -359,13 +347,15 @@ export default function SessionPage() {
             }
         }
 
+        const isMembershipPayment = selectedPaymentMethod === 'Membership';
+
         const transaction: Transaction = {
             tableId: table.id,
             tableName: table.name,
             startTime: startTimeDate.getTime(),
             endTime: new Date().getTime(),
             durationSeconds: session.elapsedSeconds,
-            tableCost: parseFloat(tableCost.toFixed(2)),
+            tableCost: isMembershipPayment ? 0 : parseFloat(tableCost.toFixed(2)),
             itemsCost: parseFloat(itemsCost.toFixed(2)),
             totalAmount: totalPayable,
             paymentMethod: selectedPaymentMethod,
@@ -378,7 +368,7 @@ export default function SessionPage() {
         
         startTransition(async () => {
             let result;
-            if (selectedPaymentMethod === 'Membership') {
+            if (isMembershipPayment) {
                 if (!selectedMember) {
                     toast({ variant: 'destructive', title: 'Error', description: 'No member selected.'});
                     return;
@@ -400,9 +390,8 @@ export default function SessionPage() {
         });
     };
     
-    const handleAddItem = useCallback((itemToAdd: MenuItem) => {
+    const handleAddItem = (itemToAdd: MenuItem) => {
         if (!session) return;
-
         const newItems = [...session.items];
         const existingItemIndex = newItems.findIndex(item => item.id === itemToAdd.id);
 
@@ -418,27 +407,26 @@ export default function SessionPage() {
         const newSession = { ...session, items: newItems };
         setSession(newSession);
         updateActiveSession(tableId, newSession);
-    }, [session, tableId]);
+    };
 
-    const handleRemoveItem = useCallback((itemIdToRemove: string) => {
+    const handleRemoveItem = (itemIdToRemove: string) => {
         if (!session) return;
-
+        let newItems: OrderItem[];
         const existingItem = session.items.find(item => item.id === itemIdToRemove);
         if (!existingItem) return;
 
-        let newItems;
         if (existingItem.quantity > 1) {
-            newItems = session.items.map(item => 
+            newItems = session.items.map(item =>
                 item.id === itemIdToRemove ? { ...item, quantity: item.quantity - 1 } : item
             );
         } else {
             newItems = session.items.filter(item => item.id !== itemIdToRemove);
         }
-    
+        
         const newSession = { ...session, items: newItems };
         setSession(newSession);
         updateActiveSession(tableId, newSession);
-    }, [session, tableId]);
+    };
     
     const isSplitPayMismatch = useMemo(() => {
         if (selectedPaymentMethod !== 'Split Pay') return false;
@@ -837,3 +825,5 @@ export default function SessionPage() {
         </div>
     );
 }
+
+    
