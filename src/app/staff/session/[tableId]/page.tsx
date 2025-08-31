@@ -351,16 +351,15 @@ export default function SessionPage() {
         }
 
         const isMembershipPayment = selectedPaymentMethod === 'Membership';
-        const originalTableCost = parseFloat(tableCost.toFixed(2));
-
+        
         const transaction: Transaction = {
             tableId: table.id,
             tableName: table.name,
             startTime: startTimeDate.getTime(),
             endTime: new Date().getTime(),
             durationSeconds: session.elapsedSeconds,
-            tableCost: isMembershipPayment ? 0 : originalTableCost,
-            itemsCost: parseFloat(itemsCost.toFixed(2)),
+            tableCost: isMembershipPayment ? 0 : tableCost,
+            itemsCost: itemsCost,
             totalAmount: totalPayable,
             paymentMethod: selectedPaymentMethod,
             cashAmount: selectedPaymentMethod === 'Split Pay' ? parsedCash : undefined,

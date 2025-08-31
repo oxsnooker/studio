@@ -88,35 +88,37 @@ export async function deleteActiveSession(tableId: string): Promise<{ success: b
 export async function saveTransaction(transactionData: Transaction) {
   try {
     await runTransaction(db, async (transaction) => {
-      // 1. READ all item documents first.
-      const itemRefsAndDocs = await Promise.all(
-        transactionData.items.map(async (item) => {
-          if (!item.id) {
-            throw new Error(`Transaction item '${item.name}' is missing an ID.`);
-          }
-          const itemRef = doc(db, 'menuItems', item.id);
-          const itemDoc = await transaction.get(itemRef);
-          if (!itemDoc.exists()) {
-            throw new Error(`Item with ID ${item.id} not found!`);
-          }
-          return { ref: itemRef, doc: itemDoc, quantity: item.quantity };
-        })
-      );
+      // 1. READ all item documents first if items exist.
+      if (transactionData.items.length > 0) {
+        const itemRefsAndDocs = await Promise.all(
+            transactionData.items.map(async (item) => {
+            if (!item.id) {
+                throw new Error(`Transaction item '${item.name}' is missing an ID.`);
+            }
+            const itemRef = doc(db, 'menuItems', item.id);
+            const itemDoc = await transaction.get(itemRef);
+            if (!itemDoc.exists()) {
+                throw new Error(`Item with ID ${item.id} not found!`);
+            }
+            return { ref: itemRef, doc: itemDoc, quantity: item.quantity };
+            })
+        );
+         // 3. WRITE the stock updates.
+        for (const { ref, doc, quantity } of itemRefsAndDocs) {
+            const currentStock = doc.data().stock;
+            const newStock = currentStock - quantity;
+
+            if (newStock < 0) {
+            console.warn(`Stock for item ${doc.data().name} (${doc.id}) is now negative (${newStock}).`);
+            }
+            transaction.update(ref, { stock: newStock });
+        }
+      }
+
 
       // 2. WRITE the new transaction document.
       const transactionRef = doc(collection(db, 'transactions'));
       transaction.set(transactionRef, transactionData);
-
-      // 3. WRITE the stock updates.
-      for (const { ref, doc, quantity } of itemRefsAndDocs) {
-        const currentStock = doc.data().stock;
-        const newStock = currentStock - quantity;
-
-        if (newStock < 0) {
-          console.warn(`Stock for item ${doc.data().name} (${doc.id}) is now negative (${newStock}).`);
-        }
-        transaction.update(ref, { stock: newStock });
-      }
 
       // 4. DELETE the active session
       const sessionRef = doc(db, 'activeSessions', transactionData.tableId);
