@@ -179,11 +179,15 @@ export async function deductHoursFromMember(memberId: string, hoursToDeduct: num
             }
 
             const member = memberDoc.data() as Member;
-            if (member.remainingHours < hoursToDeduct) {
+            // Round to 4 decimal places to avoid floating point inaccuracies
+            const remaining = Math.round(member.remainingHours * 10000) / 10000;
+            const toDeduct = Math.round(hoursToDeduct * 10000) / 10000;
+
+            if (remaining < toDeduct) {
                 throw new Error('Insufficient hours in membership.');
             }
             
-            const newRemainingHours = member.remainingHours - hoursToDeduct;
+            const newRemainingHours = remaining - toDeduct;
 
             // 1. Update member's remaining hours
             firestoreTransaction.update(memberRef, { remainingHours: newRemainingHours });
