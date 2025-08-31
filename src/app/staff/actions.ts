@@ -1,19 +1,20 @@
 
 'use server';
 
-import { doc, getDoc, collection, addDoc, runTransaction, updateDoc, query, where, getDocs, writeBatch, deleteDoc, setDoc } from 'firebase/firestore';
+import { doc, collection, addDoc, runTransaction, updateDoc, query, where, getDocs, writeBatch, deleteDoc, setDoc, getDoc as getClientDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase-client';
 import { adminDb } from '@/lib/firebase-admin';
+import { getDoc } from 'firebase-admin/firestore';
 import type { Table, Transaction, MenuItem as MenuItemType, Member, ActiveSession } from '@/lib/types';
 import { getMenuItems as getAllMenuItems } from '@/app/admin/menu/actions';
 import { revalidatePath } from 'next/cache';
 
 export async function getTableById(id: string): Promise<Table | null> {
   if (!id) return null;
-  const tableRef = doc(adminDb, 'tables', id);
-  const tableSnap = await getDoc(tableRef);
+  const tableRef = adminDb.collection('tables').doc(id);
+  const tableSnap = await tableRef.get();
 
-  if (!tableSnap.exists()) {
+  if (!tableSnap.exists) {
     return null;
   }
 
@@ -34,7 +35,7 @@ export async function getActiveSessions(): Promise<ActiveSession[]> {
 
 export async function getActiveSessionByTableId(tableId: string): Promise<ActiveSession | null> {
     const sessionRef = doc(db, 'activeSessions', tableId);
-    const docSnap = await getDoc(sessionRef);
+    const docSnap = await getClientDoc(sessionRef);
     if (docSnap.exists()) {
         return { id: docSnap.id, ...docSnap.data() } as ActiveSession;
     }
