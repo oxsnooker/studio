@@ -398,51 +398,42 @@ export default function SessionPage() {
     
     const handleAddItem = useCallback((itemToAdd: MenuItem) => {
         if (!session) return;
+    
+        const newItems = [...session.items];
+        const existingItemIndex = newItems.findIndex(item => item.id === itemToAdd.id);
+    
+        if (existingItemIndex > -1) {
+            newItems[existingItemIndex] = {
+                ...newItems[existingItemIndex],
+                quantity: newItems[existingItemIndex].quantity + 1,
+            };
+        } else {
+            newItems.push({ ...itemToAdd, quantity: 1 });
+        }
         
-        setSession(currentSession => {
-            if (!currentSession) return null;
-            
-            const newItems = [...currentSession.items];
-            const existingItemIndex = newItems.findIndex(item => item.id === itemToAdd.id);
-
-            if (existingItemIndex > -1) {
-                newItems[existingItemIndex] = {
-                    ...newItems[existingItemIndex],
-                    quantity: newItems[existingItemIndex].quantity + 1,
-                };
-            } else {
-                newItems.push({ ...itemToAdd, quantity: 1 });
-            }
-            
-            const newSession = { ...currentSession, items: newItems };
-            updateActiveSession(tableId, newSession);
-            return newSession;
-        });
+        const newSession = { ...session, items: newItems };
+        setSession(newSession);
+        updateActiveSession(tableId, newSession);
     }, [session, tableId]);
-    
-    
+
     const handleRemoveItem = useCallback((itemIdToRemove: string) => {
         if (!session) return;
-
-        setSession(currentSession => {
-            if (!currentSession) return null;
-
-            const existingItem = currentSession.items.find(item => item.id === itemIdToRemove);
-            if (!existingItem) return currentSession;
-
-            let newItems;
-            if (existingItem.quantity > 1) {
-                newItems = currentSession.items.map(item => 
-                    item.id === itemIdToRemove ? { ...item, quantity: item.quantity - 1 } : item
-                );
-            } else {
-                newItems = currentSession.items.filter(item => item.id !== itemIdToRemove);
-            }
-        
-            const newSession = { ...currentSession, items: newItems };
-            updateActiveSession(tableId, newSession);
-            return newSession;
-        });
+    
+        const existingItem = session.items.find(item => item.id === itemIdToRemove);
+        if (!existingItem) return;
+    
+        let newItems;
+        if (existingItem.quantity > 1) {
+            newItems = session.items.map(item => 
+                item.id === itemIdToRemove ? { ...item, quantity: item.quantity - 1 } : item
+            );
+        } else {
+            newItems = session.items.filter(item => item.id !== itemIdToRemove);
+        }
+    
+        const newSession = { ...session, items: newItems };
+        setSession(newSession);
+        updateActiveSession(tableId, newSession);
     }, [session, tableId]);
     
     const isSplitPayMismatch = useMemo(() => {
