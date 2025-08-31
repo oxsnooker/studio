@@ -37,7 +37,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 
 
 const staffFormSchema = z.object({
@@ -82,7 +81,9 @@ export default function LoginPage() {
             title: "Login Successful",
             description: "Redirecting to staff dashboard...",
         });
-        router.push('/staff');
+        if (result.role === 'staff') {
+            router.push('/staff');
+        }
       } else {
         toast({
           variant: "destructive",
@@ -102,7 +103,9 @@ export default function LoginPage() {
                 title: "Login Successful",
                 description: "Redirecting to admin dashboard...",
             });
-            router.push('/admin');
+            if (result.role === 'admin') {
+                router.push('/admin');
+            }
         } else {
             toast({
                 variant: "destructive",
