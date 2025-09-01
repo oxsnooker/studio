@@ -12,7 +12,7 @@ import { revalidatePath } from 'next/cache';
 export async function getTableById(id: string): Promise<Table | null> {
   if (!id) return null;
   const tableRef = adminDb.collection('tables').doc(id);
-  const tableSnap = await tableRef.get();
+  const tableSnap = await getDoc(tableRef);
 
   if (!tableSnap.exists) {
     return null;
